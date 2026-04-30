@@ -273,6 +273,15 @@ body {
   color: var(--text-primary);
 }
 
+.treenode.focused {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.treenode:focus {
+  outline: none;
+}
+
 /* Viewer */
 .viewer {
   flex: 1;
