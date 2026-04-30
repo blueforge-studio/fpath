@@ -38,3 +38,10 @@ export async function revealInFinder(path: string): Promise<void> {
 export async function openInDefaultApp(path: string): Promise<void> {
   return invoke<void>("open_in_default_app", { path });
 }
+
+export async function writeSearchIgnore(
+  workspaceRoot: string,
+  content: string
+): Promise<void> {
+  return invoke<void>("write_search_ignore", { workspaceRoot, content });
+}

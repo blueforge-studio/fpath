@@ -83,6 +83,13 @@ fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn write_search_ignore(workspace_root: &str, content: &str) -> Result<(), String> {
+    let path = Path::new(workspace_root).join(".searchignore");
+    fs::write(&path, content)
+        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))
+}
+
+#[tauri::command]
 fn reveal_in_finder(path: &str) -> Result<(), String> {
     std::process::Command::new("open")
         .args(&["-R", path])
@@ -98,6 +105,13 @@ fn open_in_default_app(path: &str) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to open file: {}", e))?;
     Ok(())
+}
+
+#[tauri::command]
+fn write_search_ignore(workspace_root: &str, content: &str) -> Result<(), String> {
+    let path = Path::new(workspace_root).join(".searchignore");
+    fs::write(&path, content)
+        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -159,6 +173,7 @@ pub fn run() {
             search_text,
             list_all_files,
             read_search_ignore,
+            write_search_ignore,
             reveal_in_file_manager,
             open_in_editor,
         ])
