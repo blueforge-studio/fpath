@@ -147,3 +147,39 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running fpath");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_entry_serialization() {
+        let entry = FileEntry {
+            name: "test.ts".into(),
+            path: "/ws/test.ts".into(),
+            relative_path: "test.ts".into(),
+            kind: "file".into(),
+            extension: Some("ts".into()),
+            is_symlink: false,
+            children: None,
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(json.contains("test.ts"));
+        assert!(json.contains("file"));
+    }
+
+    #[test]
+    fn test_directory_entry_has_children_vec() {
+        let entry = FileEntry {
+            name: "src".into(),
+            path: "/ws/src".into(),
+            relative_path: "src".into(),
+            kind: "directory".into(),
+            extension: None,
+            is_symlink: false,
+            children: Some(Vec::new()),
+        };
+        assert_eq!(entry.kind, "directory");
+        assert!(entry.children.is_some());
+    }
+}
