@@ -30,3 +30,11 @@ export async function readSearchIgnore(
     workspaceRoot,
   });
 }
+
+export async function revealInFinder(path: string): Promise<void> {
+  return invoke<void>("reveal_in_finder", { path });
+}
+
+export async function openInDefaultApp(path: string): Promise<void> {
+  return invoke<void>("open_in_default_app", { path });
+}

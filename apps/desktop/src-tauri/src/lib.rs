@@ -82,6 +82,24 @@ fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+fn reveal_in_finder(path: &str) -> Result<(), String> {
+    std::process::Command::new("open")
+        .args(&["-R", path])
+        .spawn()
+        .map_err(|e| format!("Failed to reveal in Finder: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_in_default_app(path: &str) -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg(path)
+        .spawn()
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use tauri::Manager;
