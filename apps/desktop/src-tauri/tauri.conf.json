@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nickkuk/nickkuk.github.io/refs/heads/main/src/schemas/tauri-2.schema.json",
+  "productName": "fpath",
+  "version": "0.0.0",
+  "identifier": "studio.blueforge.fpath",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "fpath",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 600,
+        "minHeight": 400
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "fs": {
+      "scope": {
+        "allow": ["**"]
+      }
+    },
+    "dialog": {
+      "all": true
+    },
+    "clipboard-manager": {
+      "all": true
+    }
+  }
+}

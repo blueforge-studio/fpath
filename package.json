@@ -1,0 +1,25 @@
+{
+  "name": "fpath",
+  "version": "0.0.0",
+  "private": true,
+  "description": "File browser companion for Claude Code — quick file path discovery, tree navigation, and syntax-highlighted preview",
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:desktop": "turbo run dev --filter=@fpath/desktop",
+    "build": "turbo run build",
+    "build:desktop": "turbo run build --filter=@fpath/desktop",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.8.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

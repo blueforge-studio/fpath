@@ -1,0 +1,36 @@
+{
+  "name": "@fpath/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "fpath desktop — Tauri + React file browser",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fpath/shared": "workspace:*",
+    "@monaco-editor/react": "^4.7.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
+    "@tauri-apps/plugin-store": "^2.0.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "monaco-editor": "^0.52.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.0"
+  }
+}
