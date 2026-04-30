@@ -19,20 +19,15 @@ const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
 fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
     let mut result: Vec<FileEntry> = Vec::new();
     let mut builder = WalkBuilder::new(workspace_root);
-    builder.standard_filters(false);
+    builder.standard_filters(true);
     builder.hidden(false);
-    builder.ignore(false);
-    builder.git_ignore(false);
-    builder.git_global(false);
-    builder.git_exclude(false);
 
     let searchignore_path = Path::new(workspace_root).join(".searchignore");
     if searchignore_path.exists() {
         builder.add_custom_ignore_filename(".searchignore");
     }
 
-    for entry in builder.build() {
-        let entry = entry.map_err(|e| e.to_string())?;
+    for entry in builder.build().flatten() {
         if entry.file_type().map_or(false, |ft| ft.is_dir()) {
             continue;
         }
@@ -80,7 +75,8 @@ fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
 fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
     let path = Path::new(workspace_root).join(".searchignore");
     if path.exists() {
-        fs::read_to_string(&path).map_err(|e| e.to_string())
+        fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read {}: {}", path.display(), e))
     } else {
         Ok(String::new())
     }
