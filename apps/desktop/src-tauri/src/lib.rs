@@ -5,7 +5,86 @@ mod types;
 
 use external::{open_in_editor, reveal_in_file_manager};
 use fs_commands::{file_exists, list_directory, read_file};
+use ignore::WalkBuilder;
 use search::search_text;
+use std::fs;
+use std::path::Path;
+
+const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
+    "node_modules", ".git", "dist", ".turbo", ".next", "target",
+    "__pycache__", ".DS_Store", "Thumbs.db",
+];
+
+#[tauri::command]
+fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
+    let mut result: Vec<FileEntry> = Vec::new();
+    let mut builder = WalkBuilder::new(workspace_root);
+    builder.standard_filters(false);
+    builder.hidden(false);
+    builder.ignore(false);
+    builder.git_ignore(false);
+    builder.git_global(false);
+    builder.git_exclude(false);
+
+    let searchignore_path = Path::new(workspace_root).join(".searchignore");
+    if searchignore_path.exists() {
+        builder.add_custom_ignore_filename(".searchignore");
+    }
+
+    for entry in builder.build() {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            continue;
+        }
+        let abs_path = entry.path().to_string_lossy().to_string();
+        let relative_path = abs_path
+            .strip_prefix(&format!("{}/", workspace_root))
+            .unwrap_or(&abs_path)
+            .to_string();
+        let name = entry.path()
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let extension = entry.path()
+            .extension()
+            .map(|e| e.to_string_lossy().to_string());
+
+        let should_skip = DEFAULT_IGNORE_PATTERNS.iter().any(|pattern| {
+            let p = pattern.trim_end_matches('/');
+            relative_path == p
+                || relative_path.starts_with(&format!("{}/", p))
+                || relative_path.contains(&format!("/{}/", p))
+        });
+        if should_skip { continue; }
+
+        result.push(FileEntry {
+            name,
+            path: abs_path,
+            relative_path,
+            kind: "file".into(),
+            extension,
+            is_symlink: entry.file_type().map_or(false, |ft| ft.is_symlink()),
+            children: None,
+        });
+    }
+
+    result.sort_by(|a, b| {
+        a.relative_path.to_lowercase().cmp(&b.relative_path.to_lowercase())
+    });
+
+    Ok(result)
+}
+
+#[tauri::command]
+fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
+    let path = Path::new(workspace_root).join(".searchignore");
+    if path.exists() {
+        fs::read_to_string(&path).map_err(|e| e.to_string())
+    } else {
+        Ok(String::new())
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -64,6 +143,8 @@ pub fn run() {
             read_file,
             file_exists,
             search_text,
+            list_all_files,
+            read_search_ignore,
             reveal_in_file_manager,
             open_in_editor,
         ])
