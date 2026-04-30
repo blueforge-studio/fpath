@@ -6,6 +6,7 @@ export interface FileEntry {
   extension?: string;
   isSymlink: boolean;
   children?: FileEntry[];
+  gitStatus?: "M" | "A" | "D" | "R" | "?" | "!" | null;
 }
 
 export interface WorkspaceConfig {

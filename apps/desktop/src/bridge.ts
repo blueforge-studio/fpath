@@ -45,3 +45,18 @@ export async function writeSearchIgnore(
 ): Promise<void> {
   return invoke<void>("write_search_ignore", { workspaceRoot, content });
 }
+
+export interface GitStatus {
+  path: string;
+  relativePath: string;
+  status: string;
+}
+
+export interface GitInfo {
+  branch: string;
+  statuses: GitStatus[];
+}
+
+export async function getGitInfo(workspaceRoot: string): Promise<GitInfo> {
+  return invoke<GitInfo>("get_git_info", { workspaceRoot });
+}

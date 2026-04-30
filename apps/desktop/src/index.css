@@ -531,6 +531,11 @@ body {
   color: var(--accent);
 }
 
+.statusbar-branch {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+}
+
 .statusbar-shortcut {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -985,3 +990,17 @@ body {
 .modal-btn-primary { background: var(--accent); color: var(--bg-primary); }
 .modal-btn-primary:hover { opacity: 0.9; }
 .modal-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Git status */
+.git-status {
+  font-size: 9px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.git-status-M { color: var(--accent-yellow); }
+.git-status-A { color: var(--accent-green); }
+.git-status-D { color: var(--accent-red); }
+.git-status-R { color: var(--accent-blue); }
+.git-status-\? { color: var(--accent-yellow); }
+.git-status-\! { color: var(--text-muted); }
