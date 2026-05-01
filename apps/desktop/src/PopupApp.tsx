@@ -127,7 +127,13 @@ export default function PopupApp() {
   const refreshWorkspace = useCallback(async () => {
     if (!workspacePath) return;
     try {
-      const root = await listDirectory(workspacePath, workspacePath);
+      const [root, ignoreContent] = await Promise.all([
+        listDirectory(workspacePath, workspacePath),
+        readSearchIgnore(workspacePath).catch(() => ""),
+      ]);
+      if (ignoreContent) {
+        loadSearchIgnore(ignoreContent);
+      }
       setFileTree(root);
     } catch (e) {
       console.error("Failed to refresh popup workspace:", e);

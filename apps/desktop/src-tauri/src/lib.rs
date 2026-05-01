@@ -50,6 +50,7 @@ fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
             relative_path == p
                 || relative_path.starts_with(&format!("{}/", p))
                 || relative_path.contains(&format!("/{}/", p))
+                || relative_path.ends_with(&format!("/{}", p))
         });
         if should_skip { continue; }
 
