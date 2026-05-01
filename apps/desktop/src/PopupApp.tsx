@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import FileTree from "./components/FileTree";
 import { useGitStatus } from "./hooks/useGitStatus";
 import { useFileWatcher } from "./hooks/useFileWatcher";
@@ -12,12 +12,16 @@ export default function PopupApp() {
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const selectedFilesRef = useRef(selectedFiles);
+  selectedFilesRef.current = selectedFiles;
 
   const loadWorkspace = useCallback(async (wsPath: string) => {
     setWorkspacePath(wsPath);
     try {
-      const root = await listDirectory(wsPath, wsPath);
-      const ignoreContent = await readSearchIgnore(wsPath);
+      const [root, ignoreContent] = await Promise.all([
+        listDirectory(wsPath, wsPath),
+        readSearchIgnore(wsPath).catch(() => ""),
+      ]);
       if (ignoreContent) {
         loadSearchIgnore(ignoreContent);
       }
@@ -36,7 +40,7 @@ export default function PopupApp() {
         loadWorkspace(path);
       }
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => { unlisten.then((fn) => fn()).catch(() => {}); };
   }, [loadWorkspace]);
 
   // Auto-focus FileTree search input when tree loads
@@ -47,6 +51,7 @@ export default function PopupApp() {
       }, 100);
       return () => clearTimeout(timer);
     }
+    return;
   }, [fileTree]);
 
   // Hide on blur — dismiss popup when user clicks outside
@@ -57,7 +62,7 @@ export default function PopupApp() {
         window.hide();
       }
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => { unlisten.then((fn) => fn()).catch(() => {}); };
   }, []);
 
   // Global key handlers for copy-all and dismiss
@@ -68,8 +73,8 @@ export default function PopupApp() {
       // Cmd+Enter: copy all checked paths and dismiss
       if (mod && e.key === "Enter") {
         e.preventDefault();
-        if (selectedFiles.size > 0) {
-          const paths = Array.from(selectedFiles).join("\n");
+        if (selectedFilesRef.current.size > 0) {
+          const paths = Array.from(selectedFilesRef.current).join("\n");
           try {
             const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
             await writeText(paths);
@@ -91,7 +96,7 @@ export default function PopupApp() {
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedFiles]);
+  }, []);
 
   const handleToggleDirectory = useCallback(
     async (path: string) => {
