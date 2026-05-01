@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_NAME="fpath"
+WORKSPACE="${1:-$PWD}"
+
+# Resolve to absolute path
+WORKSPACE="$(cd "$WORKSPACE" 2>/dev/null && pwd || echo "$WORKSPACE")"
+
+# Always use open -a with --args --popup
+# single-instance plugin handles routing to the running instance
+open -a "$APP_NAME" --args --popup "$WORKSPACE"
