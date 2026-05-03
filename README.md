@@ -2,6 +2,7 @@
 
 Navigate, preview, and copy file paths fast. Built for developers who live in the terminal and need quick file discovery during CLI and IDE sessions.
 
+[![CI](https://github.com/blueforge-studio/fpath/actions/workflows/ci.yml/badge.svg)](https://github.com/blueforge-studio/fpath/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -119,4 +120,4 @@ pnpm lint             # Lint all packages
 
 ## License
 
-MIT — see [LICENSE](./LICENSE) (TBD).
+MIT — see [LICENSE](./LICENSE).
