@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { readDir } from "@tauri-apps/plugin-fs";
 import type { FileEntry } from "@fpath/shared";
-import { flattenTree } from "@fpath/shared";
+import { flattenTree, applyTreeFilters } from "@fpath/shared";
 import { useStored } from "../hooks/useStored";
 
 interface FileTreeProps {
   nodes: FileEntry[];
+  workspaceIndex: FileEntry[];
+  indexScanning: boolean;
   selectedFiles: Set<string>;
   onSelectionChange: (selected: Set<string>) => void;
   onFileOpen: (file: FileEntry) => void;
@@ -13,8 +15,12 @@ interface FileTreeProps {
   activeFile: FileEntry | null;
 }
 
+const FILTER_MAX_RESULTS = 500;
+
 export default function FileTree({
   nodes,
+  workspaceIndex,
+  indexScanning,
   selectedFiles,
   onSelectionChange,
   onFileOpen,
@@ -67,11 +73,18 @@ export default function FileTree({
 
   const visibleNodes = useMemo(() => {
     if (!filter) return filteredTree;
-    return flattenTree(filteredTree).filter(
-      (f: FileEntry) =>
-        f.kind === "file" && f.name.toLowerCase().includes(filter.toLowerCase())
-    );
-  }, [filteredTree, filter]);
+    const lower = filter.toLowerCase();
+    const source =
+      workspaceIndex.length > 0 ? workspaceIndex : flattenTree(filteredTree);
+    return source
+      .filter(
+        (f: FileEntry) =>
+          f.kind === "file" &&
+          (f.name.toLowerCase().includes(lower) ||
+            f.relativePath.toLowerCase().includes(lower))
+      )
+      .slice(0, FILTER_MAX_RESULTS);
+  }, [filteredTree, workspaceIndex, filter]);
 
   const toggleExpand = useCallback(
     (node: FileEntry) => {
@@ -123,7 +136,11 @@ export default function FileTree({
         <input
           className="filetree-search"
           type="text"
-          placeholder="Filter files (Cmd+F)"
+          placeholder={
+            indexScanning
+              ? `Filter files (Cmd+F) — indexing ${workspaceIndex.length}…`
+              : `Filter files (Cmd+F) — ${workspaceIndex.length} indexed`
+          }
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
@@ -322,34 +339,3 @@ function FlatFileList({
   );
 }
 
-interface TreeFilters {
-  hideDotfiles: boolean;
-  rootDirsOnly: boolean;
-  repoOnly: boolean;
-  repoMap: Map<string, boolean>;
-}
-
-function applyTreeFilters(
-  nodes: FileEntry[],
-  filters: TreeFilters,
-  depth: number
-): FileEntry[] {
-  const { hideDotfiles, rootDirsOnly, repoOnly, repoMap } = filters;
-  return nodes
-    .filter((n) => {
-      if (hideDotfiles && n.name.startsWith(".")) return false;
-      if (depth === 0) {
-        if (rootDirsOnly && n.kind !== "directory") return false;
-        if (repoOnly) {
-          if (n.kind !== "directory") return false;
-          if (repoMap.get(n.path) !== true) return false;
-        }
-      }
-      return true;
-    })
-    .map((n) =>
-      n.children
-        ? { ...n, children: applyTreeFilters(n.children, filters, depth + 1) }
-        : n
-    );
-}

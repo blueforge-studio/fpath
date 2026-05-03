@@ -124,22 +124,42 @@ body {
   overflow: hidden;
 }
 
-/* File tree */
-.filetree {
-  width: 320px;
-  min-width: 200px;
-  background: var(--bg-primary);
+/* File tree wrapper handles sizing; .filetree fills it */
+.filetree-wrap {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
   border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.main-panel.tree-only .filetree-wrap {
+  flex: 1;
+  border-right: none;
+}
+
+.filetree {
+  flex: 1;
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
-.main-panel.tree-only .filetree {
-  width: auto;
-  flex: 1;
-  border-right: none;
+.splitter {
+  flex: 0 0 4px;
+  background: transparent;
+  cursor: col-resize;
+  margin-left: -2px;
+  margin-right: -2px;
+  z-index: 10;
+  position: relative;
+}
+
+.splitter:hover,
+.splitter:active {
+  background: var(--accent);
+  opacity: 0.6;
 }
 
 .filetree-header {
@@ -480,4 +500,114 @@ body {
 @keyframes toast-in {
   from { opacity: 0; transform: translate(-50%, 8px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Text content search */
+.textsearch-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  padding-top: 80px;
+  z-index: 900;
+}
+
+.textsearch-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 720px;
+  max-width: 90vw;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.textsearch-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.textsearch-input {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.textsearch-input:focus { border-color: var(--accent); }
+
+.textsearch-exts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.textsearch-ext {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.textsearch-status {
+  margin-left: auto;
+  font-style: italic;
+}
+
+.textsearch-results {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.textsearch-result {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.textsearch-result:hover,
+.textsearch-result.active {
+  background: var(--bg-primary);
+}
+
+.textsearch-result-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 2px;
+}
+
+.textsearch-result-line-no {
+  color: var(--accent);
+  margin-left: 2px;
+}
+
+.textsearch-result-line {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.textsearch-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
 }

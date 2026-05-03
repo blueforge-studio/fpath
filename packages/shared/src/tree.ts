@@ -47,3 +47,35 @@ export function getParentPaths(filePath: string): string[] {
   }
   return parents;
 }
+
+export interface TreeFilters {
+  hideDotfiles: boolean;
+  rootDirsOnly: boolean;
+  repoOnly: boolean;
+  repoMap: Map<string, boolean>;
+}
+
+export function applyTreeFilters(
+  nodes: FileEntry[],
+  filters: TreeFilters,
+  depth = 0
+): FileEntry[] {
+  const { hideDotfiles, rootDirsOnly, repoOnly, repoMap } = filters;
+  return nodes
+    .filter((n) => {
+      if (hideDotfiles && n.name.startsWith(".")) return false;
+      if (depth === 0) {
+        if (rootDirsOnly && n.kind !== "directory") return false;
+        if (repoOnly) {
+          if (n.kind !== "directory") return false;
+          if (repoMap.get(n.path) !== true) return false;
+        }
+      }
+      return true;
+    })
+    .map((n) =>
+      n.children
+        ? { ...n, children: applyTreeFilters(n.children, filters, depth + 1) }
+        : n
+    );
+}

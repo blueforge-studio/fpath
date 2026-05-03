@@ -6,14 +6,20 @@ import Toolbar from "./components/Toolbar";
 import FileTree from "./components/FileTree";
 import FileViewer from "./components/FileViewer";
 import QuickSearch from "./components/QuickSearch";
+import TextSearch from "./components/TextSearch";
 import StatusBar from "./components/StatusBar";
+import Splitter from "./components/Splitter";
 import Toast from "./components/Toast";
 import { useFileTree } from "./hooks/useFileTree";
 import { useStored } from "./hooks/useStored";
+import { useWorkspaceIndex } from "./hooks/useWorkspaceIndex";
 import type { FileEntry, CopyPathMode } from "@fpath/shared";
 
 const DEFAULT_EXPANDED_WIDTH = 1200;
 const MIN_COMPACT_WIDTH = 360;
+const DEFAULT_TREE_WIDTH = 320;
+const MIN_TREE_WIDTH = 180;
+const MAX_TREE_WIDTH = 800;
 
 export default function App() {
   const [workspacePath, setWorkspacePath] = useStored<string | null>(
@@ -25,11 +31,30 @@ export default function App() {
     "window.expandedWidth",
     DEFAULT_EXPANDED_WIDTH
   );
+  const [treeWidth, setTreeWidth] = useStored<number>(
+    "layout.treeWidth",
+    DEFAULT_TREE_WIDTH
+  );
+
+  const handleTreeResize = useCallback(
+    (deltaPx: number) => {
+      setTreeWidth((prev) =>
+        Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, prev + deltaPx))
+      );
+    },
+    [setTreeWidth]
+  );
+
+  const resetSelection = useCallback(() => {
+    setSelectedFiles(new Set());
+  }, []);
   const { nodes: fileTree, loadChildren } = useFileTree(workspacePath);
+  const { files: workspaceIndex, scanning: indexScanning } = useWorkspaceIndex(workspacePath);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [openFiles, setOpenFiles] = useState<FileEntry[]>([]);
   const [activeFile, setActiveFile] = useState<FileEntry | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showTextSearch, setShowTextSearch] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const handleWorkspaceChange = useCallback(
@@ -105,6 +130,11 @@ export default function App() {
         setShowSearch(true);
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowTextSearch(true);
+        return;
+      }
       if (e.key !== "Enter") return;
       const target = e.target as HTMLElement | null;
       if (target?.tagName === "TEXTAREA") return;
@@ -153,25 +183,36 @@ export default function App() {
         recent={recent}
         selectedFiles={selectedFiles}
         onCopy={copySelection}
+        onResetSelection={resetSelection}
         onSearchOpen={() => setShowSearch(true)}
       />
       <div className={`main-panel ${openFiles.length === 0 ? "tree-only" : ""}`}>
-        <FileTree
-          nodes={fileTree}
-          selectedFiles={selectedFiles}
-          onSelectionChange={setSelectedFiles}
-          onFileOpen={handleOpenFile}
-          onLoadChildren={loadChildren}
-          activeFile={activeFile}
-        />
-        {openFiles.length > 0 && (
-          <FileViewer
-            openFiles={openFiles}
+        <div
+          className="filetree-wrap"
+          style={openFiles.length > 0 ? { width: treeWidth } : undefined}
+        >
+          <FileTree
+            nodes={fileTree}
+            workspaceIndex={workspaceIndex}
+            indexScanning={indexScanning}
+            selectedFiles={selectedFiles}
+            onSelectionChange={setSelectedFiles}
+            onFileOpen={handleOpenFile}
+            onLoadChildren={loadChildren}
             activeFile={activeFile}
-            onTabSelect={setActiveFile}
-            onTabClose={handleCloseTab}
-            workspacePath={workspacePath}
           />
+        </div>
+        {openFiles.length > 0 && (
+          <>
+            <Splitter onResize={handleTreeResize} />
+            <FileViewer
+              openFiles={openFiles}
+              activeFile={activeFile}
+              onTabSelect={setActiveFile}
+              onTabClose={handleCloseTab}
+              workspacePath={workspacePath}
+            />
+          </>
         )}
       </div>
       <StatusBar
@@ -181,9 +222,17 @@ export default function App() {
       />
       {showSearch && (
         <QuickSearch
-          fileTree={fileTree}
+          index={workspaceIndex}
+          scanning={indexScanning}
           onSelect={handleSearchSelect}
           onClose={() => setShowSearch(false)}
+        />
+      )}
+      {showTextSearch && (
+        <TextSearch
+          workspacePath={workspacePath}
+          onOpenFile={handleOpenFile}
+          onClose={() => setShowTextSearch(false)}
         />
       )}
       <Toast message={toast} onDismiss={() => setToast(null)} />

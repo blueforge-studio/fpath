@@ -2,6 +2,21 @@
 
 Navigate, preview, and copy file paths fast. Built for developers who live in the terminal and need quick file discovery during CLI and IDE sessions.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## Features
+
+- **Lazy file tree** — directories load on expand; large workspaces stay snappy.
+- **Background workspace index** — full-workspace file index built in the background, so the filter input and Cmd+P quick search find every file (not just what's expanded).
+- **Three filter toggles** — `Hide .` (dotfiles), `Dirs only` (no files at root), `Repos only` (top-level dirs that contain a `.git` child). All persisted across sessions.
+- **Multi-tab Monaco viewer** — the same editor that powers VS Code, with syntax highlighting for ~25 languages. Open multiple files in tabs, close via the × button.
+- **Resizable splitter** — drag the divider between tree and viewer; width persists.
+- **Auto window resize** — window snaps to half-width when no tab is open, restores to your wide width when you open a file.
+- **Quick file search** — `Cmd+P` searches the full workspace index by name and relative path.
+- **Text content search** — `Cmd+Shift+F` runs a Rust-side recursive grep across `.ts` / `.tsx` / `.md` (toggle which extensions). Case-insensitive substring match.
+- **Path clipboard** — multi-select files, then `Enter` (relative paths) or `Shift+Enter` (absolute) to copy. Toast confirms what was copied.
+- **Persistent state** — workspace, recent picker, splitter width, window width, and filter toggles all survive restarts (`@tauri-apps/plugin-store`).
+
 ## Modes
 
 | Mode | Name | Technology | Status |
@@ -14,92 +29,94 @@ Navigate, preview, and copy file paths fast. Built for developers who live in th
 
 ### Option 1 — Download the App (easiest)
 
-Download the latest `.dmg` from [releases](https://github.com/kristianmandrup/fpath/releases), open, and drag **fpath** to `/Applications`.
+Download the latest `.dmg` from [releases](https://github.com/blueforge-studio/fpath/releases), open, and drag **fpath** to `/Applications`.
+
+On first launch, right-click → **Open** to bypass Gatekeeper (or `xattr -d com.apple.quarantine /Applications/fpath.app`).
 
 ### Option 2 — Build from Source
 
 **Prerequisites**
 
 - **Rust** — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Node >= 20** — `brew install node` or via [nvm](https://github.com/nvm-sh/nvm)
-- **pnpm >= 9** — `npm install -g pnpm`
-- **Xcode Command Line Tools** (for macOS code-signing) — `xcode-select --install`
+- **Node ≥ 20** — `brew install node` or via [nvm](https://github.com/nvm-sh/nvm)
+- **pnpm ≥ 9** — `corepack enable && corepack prepare pnpm@latest --activate`
+- **Xcode Command Line Tools** — `xcode-select --install`
 
 ```bash
-git clone https://github.com/kristianmandrup/fpath.git
+git clone https://github.com/blueforge-studio/fpath.git
 cd fpath
-
 pnpm install
-pnpm build          # build shared + frontend
+pnpm build:desktop
 cd apps/desktop
-pnpm tauri build    # produces .app in src-tauri/target/release/bundle/macos/
+pnpm tauri build      # produces .app in src-tauri/target/release/bundle/macos/
+cp -r src-tauri/target/release/bundle/macos/fpath.app /Applications/
 ```
 
 ### Option 3 — Dev Mode (for contributors)
 
 ```bash
 pnpm install
-pnpm dev:desktop    # starts Vite + Tauri dev window
-
-# Or run Tauri directly from the desktop app:
-cd apps/desktop
-pnpm tauri dev       # same, but from within the app directory
+cd apps/desktop && pnpm tauri dev
 ```
 
-After build, move the app:
+Vite hot-reloads the React side; Cargo rebuilds the Rust side on `src-tauri/` changes.
 
-```bash
-cp -r apps/desktop/src-tauri/target/release/bundle/macos/fpath.app /Applications/
-```
-
-On first launch, right-click → **Open** to bypass Gatekeeper (or `xattr -d com.apple.quarantine /Applications/fpath.app`).
-
-## Usage
+## Keyboard Shortcuts
 
 | Action | Shortcut |
 |--------|----------|
-| Open workspace | `Cmd+O` |
 | Quick file search | `Cmd+P` |
-| Navigate tree | Arrow keys |
-| Preview file | Enter |
-| Copy file path | `Cmd+Shift+C` |
-| Toggle hidden files | `Cmd+Shift+.` |
+| Text content search | `Cmd+Shift+F` |
+| Focus tree filter input | `Cmd+F` |
+| Copy selected paths (relative) | `Enter` |
+| Copy selected paths (absolute) | `Shift+Enter` |
+| Select-only on a folder (no expand) | `Shift+Click` |
+| Toggle directory expand | Click the row |
+| Toggle file selection | Click the checkbox |
 
 ## Project Structure
 
 ```
 fpath/
 ├── apps/
-│   ├── desktop/         # Tauri v2 + React 19
-│   │   ├── src/         # React frontend (Vite)
-│   │   └── src-tauri/   # Rust backend
-│   └── tui/             # Go TUI (Phase 3)
+│   ├── desktop/         # Tauri v2 + React 19 + Vite + Monaco
+│   │   ├── src/         # React frontend
+│   │   └── src-tauri/   # Rust backend (search_text, list_directory, ...)
+│   ├── marketing/       # Next.js landing page
+│   └── tui/             # Go TUI (planned)
 ├── packages/
-│   └── shared/          # @fpath/shared — types, tree, path utils
-├── package.json         # Root workspace config
+│   └── shared/          # @fpath/shared — types, tree logic, ignore, tests
+├── package.json
 ├── pnpm-workspace.yaml
-├── turbo.json           # Turborepo pipeline
+├── turbo.json
 └── tsconfig.base.json
 ```
 
 ## Commands
 
 ```bash
-pnpm dev              # Run all apps in dev mode
-pnpm dev:desktop      # Desktop app only
+pnpm dev:desktop      # Start desktop dev server (Vite + Tauri)
+pnpm dev:marketing    # Start marketing site dev server
 pnpm build            # Build all packages
-pnpm build:desktop    # Build desktop app only
 pnpm typecheck        # Type-check all packages
+pnpm test             # Run @fpath/shared tests (vitest)
 pnpm lint             # Lint all packages
 ```
 
 ## Tech Stack
 
 - **Desktop shell:** Tauri v2 (Rust)
-- **Frontend:** React 19, Vite 6, Tailwind CSS, Monaco Editor
+- **Frontend:** React 19, Vite 6, TypeScript 5, Monaco Editor, Tailwind via plain CSS
+- **Plugins:** `plugin-fs`, `plugin-dialog`, `plugin-clipboard-manager`, `plugin-store`
+- **Marketing site:** Next.js 16, Tailwind 4
 - **Monorepo:** pnpm workspaces, Turborepo
+- **Tests:** Vitest in `@fpath/shared`
 - **TUI (future):** Go, Bubble Tea, Chroma
+
+## Documentation
+
+- [Usage guide](./docs/USAGE.md) — keyboard shortcuts, filters, search modes, tips.
 
 ## License
 
-MIT
+MIT — see [LICENSE](./LICENSE) (TBD).

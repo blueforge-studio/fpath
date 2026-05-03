@@ -1,15 +1,18 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { FileEntry } from "@fpath/shared";
-import { flattenTree } from "@fpath/shared";
 
 interface QuickSearchProps {
-  fileTree: FileEntry[];
+  index: FileEntry[];
+  scanning: boolean;
   onSelect: (file: FileEntry) => void;
   onClose: () => void;
 }
 
+const MAX_RESULTS = 100;
+
 export default function QuickSearch({
-  fileTree,
+  index,
+  scanning,
   onSelect,
   onClose,
 }: QuickSearchProps) {
@@ -17,17 +20,17 @@ export default function QuickSearch({
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const allFiles = useMemo(() => {
-    return flattenTree(fileTree).filter((f: FileEntry) => f.kind === "file");
-  }, [fileTree]);
-
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const lower = query.toLowerCase();
-    return allFiles
-      .filter((f: FileEntry) => f.name.toLowerCase().includes(lower) || f.relativePath.toLowerCase().includes(lower))
-      .slice(0, 20);
-  }, [allFiles, query]);
+    return index
+      .filter(
+        (f: FileEntry) =>
+          f.name.toLowerCase().includes(lower) ||
+          f.relativePath.toLowerCase().includes(lower)
+      )
+      .slice(0, MAX_RESULTS);
+  }, [index, query]);
 
   useEffect(() => {
     setSelectedIdx(0);
@@ -69,7 +72,11 @@ export default function QuickSearch({
           ref={inputRef}
           className="quicksearch-input"
           type="text"
-          placeholder="Search files by name..."
+          placeholder={
+            scanning
+              ? `Search files by name… (indexing ${index.length} so far)`
+              : `Search files by name… (${index.length} indexed)`
+          }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

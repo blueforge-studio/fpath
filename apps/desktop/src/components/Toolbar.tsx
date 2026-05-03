@@ -7,6 +7,7 @@ interface ToolbarProps {
   recent: string[];
   selectedFiles: Set<string>;
   onCopy: (mode: CopyPathMode) => void;
+  onResetSelection: () => void;
   onSearchOpen: () => void;
 }
 
@@ -16,6 +17,7 @@ export default function Toolbar({
   recent,
   selectedFiles,
   onCopy,
+  onResetSelection,
   onSearchOpen,
 }: ToolbarProps) {
   const handleOpenWorkspace = useCallback(async () => {
@@ -81,6 +83,14 @@ export default function Toolbar({
           title="Copy relative paths (Enter)"
         >
           Copy Rel
+        </button>
+        <button
+          className="toolbar-btn"
+          onClick={onResetSelection}
+          disabled={selectedFiles.size === 0}
+          title="Clear all selected files"
+        >
+          Reset
         </button>
         <span className="toolbar-selection">{selectionLabel}</span>
       </div>

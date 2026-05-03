@@ -15,6 +15,9 @@ dist
 out/
 .vercel
 
+# TypeScript build cache
+*.tsbuildinfo
+
 # IDE
 .vscode
 .idea
