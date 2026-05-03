@@ -1,12 +1,15 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { readDir } from "@tauri-apps/plugin-fs";
 import type { FileEntry } from "@fpath/shared";
 import { flattenTree } from "@fpath/shared";
+import { useStored } from "../hooks/useStored";
 
 interface FileTreeProps {
   nodes: FileEntry[];
   selectedFiles: Set<string>;
   onSelectionChange: (selected: Set<string>) => void;
   onFileOpen: (file: FileEntry) => void;
+  onLoadChildren: (dirPath: string) => Promise<void>;
   activeFile: FileEntry | null;
 }
 
@@ -15,28 +18,82 @@ export default function FileTree({
   selectedFiles,
   onSelectionChange,
   onFileOpen,
+  onLoadChildren,
   activeFile,
 }: FileTreeProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["/"]));
   const [filter, setFilter] = useState("");
+  const [loadingPaths, setLoadingPaths] = useState<Set<string>>(() => new Set());
+  const [hideDotfiles, setHideDotfiles] = useStored("filter.hideDotfiles", false);
+  const [rootDirsOnly, setRootDirsOnly] = useStored("filter.rootDirsOnly", false);
+  const [repoOnly, setRepoOnly] = useStored("filter.repoOnly", false);
+  const [repoMap, setRepoMap] = useState<Map<string, boolean>>(() => new Map());
+
+  useEffect(() => {
+    if (!repoOnly) return;
+    const toProbe = nodes.filter(
+      (n) => n.kind === "directory" && !repoMap.has(n.path)
+    );
+    if (toProbe.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      toProbe.map(async (n) => {
+        try {
+          const entries = await readDir(n.path);
+          const isRepo = entries.some((e) => e.name === ".git" && e.isDirectory);
+          return [n.path, isRepo] as const;
+        } catch (err) {
+          console.warn(`Repo probe failed for ${n.path}`, err);
+          return [n.path, false] as const;
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      setRepoMap((prev) => {
+        const next = new Map(prev);
+        for (const [p, v] of results) next.set(p, v);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [repoOnly, nodes, repoMap]);
+
+  const filteredTree = useMemo(
+    () => applyTreeFilters(nodes, { hideDotfiles, rootDirsOnly, repoOnly, repoMap }, 0),
+    [nodes, hideDotfiles, rootDirsOnly, repoOnly, repoMap]
+  );
 
   const visibleNodes = useMemo(() => {
-    if (!filter) return nodes;
-    // When filtering, show only matching files (no tree structure)
-    return flattenTree(nodes).filter(
+    if (!filter) return filteredTree;
+    return flattenTree(filteredTree).filter(
       (f: FileEntry) =>
         f.kind === "file" && f.name.toLowerCase().includes(filter.toLowerCase())
     );
-  }, [nodes, filter]);
+  }, [filteredTree, filter]);
 
-  const toggleExpand = useCallback((path: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }, []);
+  const toggleExpand = useCallback(
+    (node: FileEntry) => {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(node.path)) next.delete(node.path);
+        else next.add(node.path);
+        return next;
+      });
+      if (node.kind === "directory" && node.children === undefined) {
+        setLoadingPaths((prev) => new Set(prev).add(node.path));
+        onLoadChildren(node.path).finally(() => {
+          setLoadingPaths((prev) => {
+            const next = new Set(prev);
+            next.delete(node.path);
+            return next;
+          });
+        });
+      }
+    },
+    [onLoadChildren]
+  );
 
   const toggleSelect = useCallback(
     (path: string) => {
@@ -70,6 +127,32 @@ export default function FileTree({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+        <div className="filetree-toggles">
+          <button
+            type="button"
+            className={`filetree-toggle ${hideDotfiles ? "active" : ""}`}
+            onClick={() => setHideDotfiles((v) => !v)}
+            title="Hide dot-prefixed entries (.git, .claude, ...)"
+          >
+            Hide .
+          </button>
+          <button
+            type="button"
+            className={`filetree-toggle ${rootDirsOnly ? "active" : ""}`}
+            onClick={() => setRootDirsOnly((v) => !v)}
+            title="At the root, hide files — show only directories"
+          >
+            Dirs only
+          </button>
+          <button
+            type="button"
+            className={`filetree-toggle ${repoOnly ? "active" : ""}`}
+            onClick={() => setRepoOnly((v) => !v)}
+            title="At the root, show only directories that contain a .git folder"
+          >
+            Repos only
+          </button>
+        </div>
       </div>
       <div className="filetree-body">
         {filter ? (
@@ -85,6 +168,7 @@ export default function FileTree({
             nodes={visibleNodes}
             depth={0}
             expanded={expanded}
+            loadingPaths={loadingPaths}
             selectedFiles={selectedFiles}
             activeFile={activeFile}
             onToggleExpand={toggleExpand}
@@ -97,25 +181,20 @@ export default function FileTree({
   );
 }
 
-function TreeNodeList({
-  nodes,
-  depth,
-  expanded,
-  selectedFiles,
-  activeFile,
-  onToggleExpand,
-  onToggleSelect,
-  onOpen,
-}: {
+interface TreeNodeListProps {
   nodes: FileEntry[];
   depth: number;
   expanded: Set<string>;
+  loadingPaths: Set<string>;
   selectedFiles: Set<string>;
   activeFile: FileEntry | null;
-  onToggleExpand: (path: string) => void;
+  onToggleExpand: (node: FileEntry) => void;
   onToggleSelect: (path: string) => void;
   onOpen: (file: FileEntry) => void;
-}) {
+}
+
+function TreeNodeList(props: TreeNodeListProps) {
+  const { nodes, depth, expanded, loadingPaths, selectedFiles, activeFile } = props;
   return (
     <>
       {nodes.map((node) => (
@@ -124,13 +203,10 @@ function TreeNodeList({
           node={node}
           depth={depth}
           isExpanded={expanded.has(node.path)}
+          isLoading={loadingPaths.has(node.path)}
           isSelected={selectedFiles.has(node.path)}
           isActive={activeFile?.path === node.path}
-          selectedFiles={selectedFiles}
-          activeFile={activeFile}
-          onToggleExpand={onToggleExpand}
-          onToggleSelect={onToggleSelect}
-          onOpen={onOpen}
+          listProps={props}
         />
       ))}
     </>
@@ -141,54 +217,56 @@ function TreeNode({
   node,
   depth,
   isExpanded,
+  isLoading,
   isSelected,
   isActive,
-  selectedFiles,
-  activeFile,
-  onToggleExpand,
-  onToggleSelect,
-  onOpen,
+  listProps,
 }: {
   node: FileEntry;
   depth: number;
   isExpanded: boolean;
+  isLoading: boolean;
   isSelected: boolean;
   isActive: boolean;
-  selectedFiles: Set<string>;
-  activeFile: FileEntry | null;
-  onToggleExpand: (path: string) => void;
-  onToggleSelect: (path: string) => void;
-  onOpen: (file: FileEntry) => void;
+  listProps: TreeNodeListProps;
 }) {
+  const { onToggleExpand, onToggleSelect, onOpen } = listProps;
   const paddingLeft = 8 + depth * 16;
   const isDir = node.kind === "directory";
   const icon = isDir ? "📁" : "📄";
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      // Context menu will be added in a follow-up
-    },
-    []
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const expandGlyph = isDir
+    ? isLoading
+      ? "⋯"
+      : isExpanded
+        ? "▼"
+        : "▶"
+    : "";
 
   return (
     <>
       <div
         className={`treenode ${isSelected ? "selected" : ""} ${isActive ? "active" : ""}`}
         style={{ paddingLeft }}
-        onClick={() => {
-          if (isDir) onToggleExpand(node.path);
+        onClick={(e) => {
+          if (e.shiftKey) {
+            onToggleSelect(node.path);
+            return;
+          }
+          if (isDir) onToggleExpand(node);
           else onOpen(node);
         }}
         onContextMenu={handleContextMenu}
       >
-        <span className="treenode-expand">
-          {isDir ? (isExpanded ? "▼" : "▶") : ""}
-        </span>
+        <span className="treenode-expand">{expandGlyph}</span>
         <input
           type="checkbox"
           checked={isSelected}
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             e.stopPropagation();
             onToggleSelect(node.path);
@@ -199,16 +277,7 @@ function TreeNode({
         <span className="treenode-name">{node.name}</span>
       </div>
       {isDir && isExpanded && node.children && (
-        <TreeNodeList
-          nodes={node.children}
-          depth={depth + 1}
-          expanded={new Set()}
-          selectedFiles={selectedFiles}
-          activeFile={activeFile}
-          onToggleExpand={onToggleExpand}
-          onToggleSelect={onToggleSelect}
-          onOpen={onOpen}
-        />
+        <TreeNodeList {...listProps} nodes={node.children} depth={depth + 1} />
       )}
     </>
   );
@@ -251,4 +320,36 @@ function FlatFileList({
       ))}
     </>
   );
+}
+
+interface TreeFilters {
+  hideDotfiles: boolean;
+  rootDirsOnly: boolean;
+  repoOnly: boolean;
+  repoMap: Map<string, boolean>;
+}
+
+function applyTreeFilters(
+  nodes: FileEntry[],
+  filters: TreeFilters,
+  depth: number
+): FileEntry[] {
+  const { hideDotfiles, rootDirsOnly, repoOnly, repoMap } = filters;
+  return nodes
+    .filter((n) => {
+      if (hideDotfiles && n.name.startsWith(".")) return false;
+      if (depth === 0) {
+        if (rootDirsOnly && n.kind !== "directory") return false;
+        if (repoOnly) {
+          if (n.kind !== "directory") return false;
+          if (repoMap.get(n.path) !== true) return false;
+        }
+      }
+      return true;
+    })
+    .map((n) =>
+      n.children
+        ? { ...n, children: applyTreeFilters(n.children, filters, depth + 1) }
+        : n
+    );
 }

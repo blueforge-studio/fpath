@@ -1,12 +1,12 @@
 [package]
-name = "fpath-desktop"
+name = "fpath"
 version = "0.0.0"
 description = "fpath desktop — Tauri file browser companion"
 authors = ["BlueForge Studio"]
 edition = "2021"
 
 [lib]
-name = "fpath_desktop_lib"
+name = "fpath_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

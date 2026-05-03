@@ -24,17 +24,5 @@
       "csp": null
     }
   },
-  "plugins": {
-    "fs": {
-      "scope": {
-        "allow": ["**"]
-      }
-    },
-    "dialog": {
-      "all": true
-    },
-    "clipboard-manager": {
-      "all": true
-    }
-  }
+  "plugins": {}
 }

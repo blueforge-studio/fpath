@@ -3,9 +3,17 @@ dist
 .turbo
 .superpowers
 
-# Tauri
-src-tauri/target
-src-tauri/gen
+# Claude Code session data
+.claude/
+
+# Tauri build output (any nesting)
+**/src-tauri/target/
+**/src-tauri/gen/
+
+# Next.js
+.next/
+out/
+.vercel
 
 # IDE
 .vscode
@@ -20,3 +28,4 @@ Thumbs.db
 # Environment
 .env
 .env.local
+.env.*.local

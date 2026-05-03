@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import Editor from "@monaco-editor/react";
+import { readTextFile } from "@tauri-apps/plugin-fs";
 import type { FileEntry } from "@fpath/shared";
 
 interface FileViewerProps {
@@ -15,19 +18,6 @@ export default function FileViewer({
   onTabClose,
   workspacePath,
 }: FileViewerProps) {
-  if (openFiles.length === 0) {
-    return (
-      <div className="viewer">
-        <div className="viewer-empty">
-          <p>No file open</p>
-          <p className="viewer-hint">
-            Select a file from the tree or use Cmd+P to search
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="viewer">
       <div className="viewer-tabs">
@@ -68,45 +58,109 @@ export default function FileViewer({
   );
 }
 
-function MonacoViewer({
-  file,
-}: {
-  file: FileEntry;
-  workspacePath: string | null;
-}) {
-  const ext = file.extension ?? "";
-  const langMap: Record<string, string> = {
-    ts: "typescript",
-    tsx: "typescript",
-    js: "javascript",
-    jsx: "javascript",
-    json: "json",
-    md: "markdown",
-    css: "css",
-    html: "html",
-    rs: "rust",
-    go: "go",
-    py: "python",
-    yaml: "yaml",
-    yml: "yaml",
-    toml: "toml",
-    sql: "sql",
-    sh: "shell",
-    bash: "shell",
-    zsh: "shell",
-  };
+const LANG_MAP: Record<string, string> = {
+  ts: "typescript",
+  tsx: "typescript",
+  js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  json: "json",
+  md: "markdown",
+  mdx: "markdown",
+  css: "css",
+  scss: "scss",
+  html: "html",
+  rs: "rust",
+  go: "go",
+  py: "python",
+  rb: "ruby",
+  java: "java",
+  kt: "kotlin",
+  swift: "swift",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+  yaml: "yaml",
+  yml: "yaml",
+  toml: "ini",
+  sql: "sql",
+  sh: "shell",
+  bash: "shell",
+  zsh: "shell",
+  dockerfile: "dockerfile",
+  xml: "xml",
+  svg: "xml",
+};
 
-  const language = langMap[ext] ?? ext;
+const MAX_BYTES = 2_000_000;
+
+function MonacoViewer({ file }: { file: FileEntry; workspacePath: string | null }) {
+  const [content, setContent] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setContent("");
+    readTextFile(file.path)
+      .then((text) => {
+        if (cancelled) return;
+        if (text.length > MAX_BYTES) {
+          setContent(
+            text.slice(0, MAX_BYTES) +
+              `\n\n— truncated at ${MAX_BYTES.toLocaleString()} chars —`
+          );
+        } else {
+          setContent(text);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(typeof err === "string" ? err : (err?.message ?? String(err)));
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file.path]);
+
+  const ext = (file.extension ?? "").toLowerCase();
+  const language = LANG_MAP[ext] ?? "plaintext";
+
+  if (error) {
+    return (
+      <div className="viewer-monaco-message viewer-monaco-error">
+        Failed to read file: {error}
+      </div>
+    );
+  }
+  if (loading) {
+    return <div className="viewer-monaco-message">Loading {file.name}…</div>;
+  }
 
   return (
-    <div className="viewer-monaco">
-      <p className="viewer-monaco-placeholder">
-        Monaco Editor will render <strong>{file.name}</strong> here
-        {" "}(language: {language || "auto-detect"})
-      </p>
-      <p className="viewer-monaco-hint">
-        Full Monaco integration — read Tauri backend section in spec
-      </p>
-    </div>
+    <Editor
+      height="100%"
+      language={language}
+      value={content}
+      theme="vs-dark"
+      path={file.path}
+      options={{
+        readOnly: true,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        fontSize: 13,
+        wordWrap: "on",
+        renderWhitespace: "selection",
+        smoothScrolling: true,
+        automaticLayout: true,
+      }}
+    />
   );
 }

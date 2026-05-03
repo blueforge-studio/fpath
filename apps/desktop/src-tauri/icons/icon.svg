@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded background -->
+  <rect width="1024" height="1024" rx="200" ry="200" fill="#0f172a"/>
+
+  <!-- Tree trunk (vertical bar) — ends at the highlighted node -->
+  <rect x="291" y="260" width="18" height="420" rx="9" fill="#475569"/>
+
+  <!-- Horizontal branches -->
+  <rect x="300" y="351" width="170" height="18" rx="9" fill="#475569"/>
+  <rect x="300" y="511" width="170" height="18" rx="9" fill="#475569"/>
+  <rect x="300" y="671" width="170" height="18" rx="9" fill="#475569"/>
+
+  <!-- Root node -->
+  <circle cx="300" cy="260" r="56" fill="#e2e8f0"/>
+  <circle cx="300" cy="260" r="22" fill="#0f172a"/>
+
+  <!-- Child nodes -->
+  <circle cx="500" cy="360" r="38" fill="#64748b"/>
+  <circle cx="500" cy="520" r="38" fill="#64748b"/>
+
+  <!-- Highlighted active path node (with halo via two circles) -->
+  <circle cx="500" cy="680" r="86" fill="#0ea5e9" opacity="0.18"/>
+  <circle cx="500" cy="680" r="64" fill="#0ea5e9"/>
+  <circle cx="500" cy="680" r="22" fill="#e0f2fe"/>
+
+  <!-- Diagonal path slash (parallelogram) -->
+  <polygon points="800,240 850,240 720,780 670,780" fill="#0ea5e9" opacity="0.85"/>
+</svg>
