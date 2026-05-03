@@ -12,12 +12,11 @@ interface TextMatch {
 
 interface TextSearchProps {
   workspacePath: string | null;
+  availableExtensions: string[];
   onOpenFile: (file: FileEntry) => void;
   onClose: () => void;
 }
 
-const AVAILABLE_EXTS = ["ts", "tsx", "md"] as const;
-const DEFAULT_EXTS = [...AVAILABLE_EXTS];
 const DEBOUNCE_MS = 250;
 const MAX_RESULTS = 500;
 
@@ -36,11 +35,17 @@ function fileEntryFromMatch(m: TextMatch): FileEntry {
 
 export default function TextSearch({
   workspacePath,
+  availableExtensions,
   onOpenFile,
   onClose,
 }: TextSearchProps) {
   const [query, setQuery] = useState("");
-  const [exts, setExts] = useStored<string[]>("textsearch.exts", DEFAULT_EXTS);
+  const [storedExts, setStoredExts] = useStored<string[]>(
+    "textsearch.exts",
+    availableExtensions
+  );
+  const exts = storedExts.filter((e) => availableExtensions.includes(e));
+  const setExts = setStoredExts;
   const [results, setResults] = useState<TextMatch[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +144,7 @@ export default function TextSearch({
             onChange={(e) => setQuery(e.target.value)}
           />
           <div className="textsearch-exts">
-            {AVAILABLE_EXTS.map((ext) => (
+            {availableExtensions.map((ext) => (
               <label key={ext} className="textsearch-ext">
                 <input
                   type="checkbox"
@@ -149,6 +154,11 @@ export default function TextSearch({
                 .{ext}
               </label>
             ))}
+            {availableExtensions.length === 0 && (
+              <span className="textsearch-status">
+                No extensions configured. Open Settings to add some.
+              </span>
+            )}
             <span className="textsearch-status">
               {searching
                 ? "searching…"

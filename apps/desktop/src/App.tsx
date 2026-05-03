@@ -9,7 +9,9 @@ import QuickSearch from "./components/QuickSearch";
 import TextSearch from "./components/TextSearch";
 import StatusBar from "./components/StatusBar";
 import Splitter from "./components/Splitter";
+import Settings from "./components/Settings";
 import Toast from "./components/Toast";
+import { loadSearchIgnore } from "@fpath/shared";
 import { useFileTree } from "./hooks/useFileTree";
 import { useStored } from "./hooks/useStored";
 import { useWorkspaceIndex } from "./hooks/useWorkspaceIndex";
@@ -55,6 +57,19 @@ export default function App() {
   const [activeFile, setActiveFile] = useState<FileEntry | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [showTextSearch, setShowTextSearch] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customIgnorePatterns, setCustomIgnorePatterns] = useStored<string>(
+    "settings.customIgnorePatterns",
+    ""
+  );
+  const [searchExtensions, setSearchExtensions] = useStored<string[]>(
+    "settings.searchExtensions",
+    ["ts", "tsx", "md"]
+  );
+
+  useEffect(() => {
+    loadSearchIgnore(customIgnorePatterns);
+  }, [customIgnorePatterns]);
   const [toast, setToast] = useState<string | null>(null);
 
   const handleWorkspaceChange = useCallback(
@@ -185,6 +200,7 @@ export default function App() {
         onCopy={copySelection}
         onResetSelection={resetSelection}
         onSearchOpen={() => setShowSearch(true)}
+        onSettingsOpen={() => setShowSettings(true)}
       />
       <div className={`main-panel ${openFiles.length === 0 ? "tree-only" : ""}`}>
         <div
@@ -231,8 +247,18 @@ export default function App() {
       {showTextSearch && (
         <TextSearch
           workspacePath={workspacePath}
+          availableExtensions={searchExtensions}
           onOpenFile={handleOpenFile}
           onClose={() => setShowTextSearch(false)}
+        />
+      )}
+      {showSettings && (
+        <Settings
+          customIgnorePatterns={customIgnorePatterns}
+          onIgnorePatternsChange={setCustomIgnorePatterns}
+          searchExtensions={searchExtensions}
+          onSearchExtensionsChange={setSearchExtensions}
+          onClose={() => setShowSettings(false)}
         />
       )}
       <Toast message={toast} onDismiss={() => setToast(null)} />

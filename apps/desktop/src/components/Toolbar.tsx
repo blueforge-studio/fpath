@@ -9,6 +9,7 @@ interface ToolbarProps {
   onCopy: (mode: CopyPathMode) => void;
   onResetSelection: () => void;
   onSearchOpen: () => void;
+  onSettingsOpen: () => void;
 }
 
 export default function Toolbar({
@@ -19,6 +20,7 @@ export default function Toolbar({
   onCopy,
   onResetSelection,
   onSearchOpen,
+  onSettingsOpen,
 }: ToolbarProps) {
   const handleOpenWorkspace = useCallback(async () => {
     try {
@@ -91,6 +93,14 @@ export default function Toolbar({
           title="Clear all selected files"
         >
           Reset
+        </button>
+        <button
+          className="toolbar-btn"
+          onClick={onSettingsOpen}
+          title="Settings"
+          aria-label="Open settings"
+        >
+          ⚙
         </button>
         <span className="toolbar-selection">{selectionLabel}</span>
       </div>

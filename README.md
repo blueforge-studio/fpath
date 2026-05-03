@@ -17,13 +17,16 @@ Navigate, preview, and copy file paths fast. Built for developers who live in th
 - **Text content search** — `Cmd+Shift+F` runs a Rust-side recursive grep across `.ts` / `.tsx` / `.md` (toggle which extensions). Case-insensitive substring match.
 - **Path clipboard** — multi-select files, then `Enter` (relative paths) or `Shift+Enter` (absolute) to copy. Toast confirms what was copied.
 - **Persistent state** — workspace, recent picker, splitter width, window width, and filter toggles all survive restarts (`@tauri-apps/plugin-store`).
+- **Settings panel** — gear icon in the toolbar opens a modal to add custom ignore patterns (gitignore syntax) and configure which file extensions appear in the text-search modal.
+- **Auto-update** — built-in updater checks GitHub Releases for signed builds and installs in-place (see [Releases & signing](./docs/USAGE.md#releases--signing)).
+- **Popup mode (Mode B)** — frameless overlay summoned anywhere with `Cmd+Option+Space`. Type to fuzzy-find a file in the workspace, `Enter` copies the relative path and dismisses; `Shift+Enter` copies the absolute path.
 
 ## Modes
 
 | Mode | Name | Technology | Status |
 |------|------|------------|--------|
 | **A** | Desktop | Tauri v2 + React 19 | Active |
-| **B** | Popup | Tauri window (frameless overlay) | Planned |
+| **B** | Popup | Frameless overlay (`Cmd+Option+Space`) | Active |
 | **C** | TUI | Go + Bubble Tea | Planned |
 
 ## Installation (macOS)
@@ -66,6 +69,7 @@ Vite hot-reloads the React side; Cargo rebuilds the Rust side on `src-tauri/` ch
 
 | Action | Shortcut |
 |--------|----------|
+| Toggle Popup mode (global) | `Cmd+Option+Space` |
 | Quick file search | `Cmd+P` |
 | Text content search | `Cmd+Shift+F` |
 | Focus tree filter input | `Cmd+F` |

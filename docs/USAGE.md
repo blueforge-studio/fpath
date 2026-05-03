@@ -98,3 +98,74 @@ Delete the file to reset to defaults.
 - **"Repos only" hides everything for a moment.** The probe runs lazily after toggling on; entries appear as their `.git` checks complete.
 - **QuickSearch only finds a few files right after launch.** The workspace index is still building. Watch the placeholder text — it shows the live count.
 - **Filter toggle shortcuts don't fire while focus is in a textarea.** None exists in the app today, but the global Enter handler skips textareas to future-proof against accidental capture.
+
+## Settings (⚙ in the toolbar)
+
+A modal that exposes two configurations:
+
+### Custom ignore patterns
+
+Free-form text area; one pattern per line, .gitignore syntax. Applied **on top of** the built-in defaults (`node_modules`, `.git`, `dist`, `.turbo`, `.next`, `target`, `__pycache__`, `.DS_Store`, `Thumbs.db`, `*.log`).
+
+Affects the file tree, the workspace index (Cmd+P, filter input), and Popup mode. Click **Apply ignore patterns** to commit; the index re-walks immediately. Note: Cmd+Shift+F text search uses a separate Rust-side ignore list and is not yet affected by custom patterns.
+
+### Text search extensions
+
+The list of file extensions that appear as toggle checkboxes in the Cmd+Shift+F modal. Default: `ts`, `tsx`, `md`. Add or remove freely. Removing an extension from this list also unticks it from any persisted text-search selection.
+
+## Updates
+
+Settings → **Updates** section.
+
+- Shows the current version (read from the Tauri bundle).
+- **Check for updates** queries the GitHub Releases endpoint configured in `tauri.conf.json` for a `latest.json` describing the newest signed build.
+- If an update is available, click **Download & install** — the updater downloads the signed package, verifies the signature against the embedded public key, replaces the app in place, and the app relaunches into the new version.
+- Errors (no network, no release published yet, etc.) are shown inline and the button becomes **Retry**.
+
+## Popup mode (`Cmd+Option+Space`)
+
+A frameless, always-on-top overlay window for **fast file-path lookup from anywhere on the OS** — including from outside the app. The shortcut toggles it: press once to show + focus, again to hide. `Esc` also hides.
+
+- The popup uses the same workspace as the main window (read from persisted settings).
+- Type to fuzzy-search by filename or relative path.
+- Arrow keys navigate; the highlighted result is the active one.
+- `Enter` copies the **relative** path to the clipboard and hides the popup.
+- `Shift+Enter` copies the **absolute** path.
+
+The first time you open the popup after launch it builds its own copy of the workspace index in the background. Subsequent activations are instant.
+
+## Releases & signing
+
+The auto-updater requires signed builds. The repo ships a public key in `apps/desktop/src-tauri/tauri.conf.json` that matches a private key stored at `apps/desktop/.keys/fpath_updater.key` (gitignored).
+
+To produce a signed release:
+
+```bash
+cd apps/desktop
+TAURI_SIGNING_PRIVATE_KEY=$(cat .keys/fpath_updater.key) \
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" \
+pnpm tauri build
+```
+
+Tauri produces:
+
+- The platform installer (`.dmg`, `.msi`, `.deb`)
+- A signed updater bundle alongside it (`.app.tar.gz` + `.app.tar.gz.sig` on macOS)
+
+Upload **both** the installer and the `.sig` to the GitHub Release, plus a `latest.json` of the form:
+
+```json
+{
+  "version": "0.1.0",
+  "notes": "Release notes here",
+  "pub_date": "2026-05-04T00:00:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "...contents of .sig file...",
+      "url": "https://github.com/blueforge-studio/fpath/releases/download/v0.1.0/fpath_0.1.0_aarch64.app.tar.gz"
+    }
+  }
+}
+```
+
+To rotate keys (if the private key leaks), regenerate with `pnpm tauri signer generate` and update both `tauri.conf.json` and any local key files; users on the old key will need to install the new version manually.
