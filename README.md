@@ -39,7 +39,7 @@ On first launch, right-click → **Open** to bypass Gatekeeper (or `xattr -d com
 **Prerequisites**
 
 - **Rust** — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Node ≥ 20** — `brew install node` or via [nvm](https://github.com/nvm-sh/nvm)
+- **Node ≥ 24** — `brew install node` or via [nvm](https://github.com/nvm-sh/nvm)
 - **pnpm ≥ 9** — `corepack enable && corepack prepare pnpm@latest --activate`
 - **Xcode Command Line Tools** — `xcode-select --install`
 
