@@ -19,6 +19,10 @@ next-env.d.ts
 # TypeScript build cache
 *.tsbuildinfo
 
+# Go binaries
+apps/tui/fpath-tui
+apps/tui/tui
+
 # IDE
 .vscode
 .idea

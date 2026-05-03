@@ -35,3 +35,20 @@ jobs:
       - run: pnpm test
 
       - run: pnpm build
+
+  tui:
+    name: TUI (Go build + vet)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: apps/tui/go.sum
+
+      - working-directory: apps/tui
+        run: |
+          go vet ./...
+          go build .

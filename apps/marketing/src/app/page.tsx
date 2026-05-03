@@ -128,13 +128,13 @@ const modes = [
   },
   {
     title: "Popup",
-    tag: "Coming soon",
-    desc: "Frameless overlay window summoned by a global shortcut. Quick file lookup without leaving your editor or terminal.",
+    tag: "Available now",
+    desc: "Frameless overlay window summoned anywhere with Cmd+Option+Space. Type to find a file in your workspace, Enter copies the relative path, Shift+Enter copies absolute. Hides on Esc or shortcut toggle.",
   },
   {
     title: "TUI",
-    tag: "Phase 3",
-    desc: "Terminal-native file browser. Go + Bubble Tea with vim keybindings and fuzzy search. For the die-hard terminal crowd.",
+    tag: "Available now",
+    desc: "fpath-tui — Go + Bubble Tea, runs in any terminal. Vim keys (j/k, /, Space, y/Y), workspace-wide fuzzy filter, multi-select clipboard. For ssh sessions and tmux panes.",
   },
 ];
 

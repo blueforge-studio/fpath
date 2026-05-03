@@ -20,6 +20,7 @@ Navigate, preview, and copy file paths fast. Built for developers who live in th
 - **Settings panel** — gear icon in the toolbar opens a modal to add custom ignore patterns (gitignore syntax) and configure which file extensions appear in the text-search modal.
 - **Auto-update** — built-in updater checks GitHub Releases for signed builds and installs in-place (see [Releases & signing](./docs/USAGE.md#releases--signing)).
 - **Popup mode (Mode B)** — frameless overlay summoned anywhere with `Cmd+Option+Space`. Type to fuzzy-find a file in the workspace, `Enter` copies the relative path and dismisses; `Shift+Enter` copies the absolute path.
+- **TUI mode (Mode C)** — `fpath-tui` Go binary built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Vim-style keys (`j`/`k`, `/`, `Space`, `y`/`Y`), workspace-wide filter, multi-select clipboard. See [apps/tui/README.md](./apps/tui/README.md).
 
 ## Modes
 
@@ -27,7 +28,7 @@ Navigate, preview, and copy file paths fast. Built for developers who live in th
 |------|------|------------|--------|
 | **A** | Desktop | Tauri v2 + React 19 | Active |
 | **B** | Popup | Frameless overlay (`Cmd+Option+Space`) | Active |
-| **C** | TUI | Go + Bubble Tea | Planned |
+| **C** | TUI | Go + Bubble Tea (`fpath-tui`) | Active — see [apps/tui/README.md](./apps/tui/README.md) |
 
 ## Installation (macOS)
 
@@ -88,7 +89,7 @@ fpath/
 │   │   ├── src/         # React frontend
 │   │   └── src-tauri/   # Rust backend (search_text, list_directory, ...)
 │   ├── marketing/       # Next.js landing page
-│   └── tui/             # Go TUI (planned)
+│   └── tui/             # Go + Bubble Tea TUI (fpath-tui)
 ├── packages/
 │   └── shared/          # @fpath/shared — types, tree logic, ignore, tests
 ├── package.json
@@ -116,7 +117,7 @@ pnpm lint             # Lint all packages
 - **Marketing site:** Next.js 16, Tailwind 4
 - **Monorepo:** pnpm workspaces, Turborepo
 - **Tests:** Vitest in `@fpath/shared`
-- **TUI (future):** Go, Bubble Tea, Chroma
+- **TUI:** Go 1.24, Bubble Tea, Lipgloss, atotto/clipboard (chroma syntax-highlight planned)
 
 ## Documentation
 
