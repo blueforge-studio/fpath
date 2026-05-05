@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "fpath — File Browser Companion",
   description:
-    "Navigate, preview, and copy file paths fast. A desktop file browser built for developers who work in the terminal.",
+    "Navigate, preview, edit, and copy file paths fast. A keyboard-first desktop file browser with a Monaco editor, a Bubble Tea TUI, and an MCP server for AI agents.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

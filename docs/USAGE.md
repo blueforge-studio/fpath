@@ -60,11 +60,46 @@ A second modal runs a Rust-side recursive scan across files matching your select
 
 ## Viewer (Monaco)
 
-Files open as tabs in the right pane. The editor is read-only and dark-themed, with syntax highlighting for ~25 common languages. Files larger than 2 MB are truncated with a notice.
+Files open as tabs in the right pane. Dark-themed editor with syntax highlighting for ~25 common languages. Files larger than 2 MB stay read-only with a `read-only · truncated` badge in the path bar.
 
 - Click a tab to switch.
-- Click the **×** on a tab to close.
+- Click the close glyph (`●` when dirty, `×` when clean).
 - Closing the last tab hides the viewer pane and the window snaps back to half-width.
+
+### Editing & saving
+
+- The editor is fully editable — type to make changes.
+- The tab close glyph changes from `×` to `●` when there are unsaved changes; the path bar shows ` • modified`.
+- **`Cmd+S`** saves the active tab. A toast confirms (`Saved foo.ts`) or shows the failure.
+- Closing a dirty tab via the close glyph or `Cmd+W` triggers a *Discard / Cancel* dialog.
+
+### External-change detection
+
+Open files are watched. If something else changes the file on disk:
+
+- **Clean tab** → reloads silently with a toast (`Reloaded foo.ts (changed on disk)`).
+- **Dirty tab** → prompt: *Reload* (discard your edits) or *Keep mine* (your save will overwrite the disk version on next `Cmd+S`).
+- **Deleted on disk** → toast warns; editor stays open so you can save to recreate.
+
+Self-events caused by your own `Cmd+S` are suppressed for ~1.5 s.
+
+### Tab navigation
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+S` | Save active tab |
+| `Cmd+W` | Close active tab (with dirty guard) |
+| `Cmd+1..8` | Jump to tab N |
+| `Cmd+9` | Jump to last tab (VS Code convention) |
+| `Cmd+Shift+[` / `Cmd+Shift+]` | Previous / next tab (cyclical) |
+
+### Right-click on a file (or folder) in the tree
+
+A small context menu appears with:
+
+- **Open in viewer** — for files only.
+- **Reveal in Finder** (macOS) / **Reveal in Explorer** (Windows) / **Show in file manager** (Linux).
+- **Open in <editor>** — runs the configured external editor (or `$VISUAL`/`$EDITOR`/`code`) with the path as an argument.
 
 ### Splitter
 
@@ -101,7 +136,7 @@ Delete the file to reset to defaults.
 
 ## Settings (⚙ in the toolbar)
 
-A modal that exposes two configurations:
+A modal that exposes the following configurations:
 
 ### Custom ignore patterns
 
@@ -112,6 +147,15 @@ Affects the file tree, the workspace index (Cmd+P, filter input), and Popup mode
 ### Text search extensions
 
 The list of file extensions that appear as toggle checkboxes in the Cmd+Shift+F modal. Default: `ts`, `tsx`, `md`. Add or remove freely. Removing an extension from this list also unticks it from any persisted text-search selection.
+
+### External editor
+
+The command used by **Open in editor** in the right-click menu.
+
+- Leave blank to use `$VISUAL`, then `$EDITOR`, falling back to `code`.
+- Examples: `code`, `cursor`, `subl -n`, `zed --wait`.
+- The command is shell-split on whitespace; the file path is appended as the last argument.
+- The command must be on `PATH` from where the app was launched. If you launch fpath via Spotlight / Finder on macOS, `$PATH` may not include shell-only directories — install your editor's CLI shim into `/usr/local/bin` or `/opt/homebrew/bin`, or use `open -a "Visual Studio Code"` style commands.
 
 ## Updates
 
@@ -169,3 +213,50 @@ Upload **both** the installer and the `.sig` to the GitHub Release, plus a `late
 ```
 
 To rotate keys (if the private key leaks), regenerate with `pnpm tauri signer generate` and update both `tauri.conf.json` and any local key files; users on the old key will need to install the new version manually.
+
+## MCP server (Mode D)
+
+`@fpath/mcp` exposes the workspace browsing tools to MCP clients (Claude Code, Claude Desktop, Cursor) so an AI agent can list, find, grep, and read files in your workspace without you copy-pasting paths.
+
+### Tools
+
+| Tool             | Purpose                                               |
+| ---------------- | ----------------------------------------------------- |
+| `list_directory` | Immediate entries in a directory.                     |
+| `find_files`     | Substring match on file name / relative path.         |
+| `search_text`    | Grep across files filtered by extension.              |
+| `read_file`      | Read a UTF-8 text file (size-capped, default 1 MB).   |
+
+All four accept an optional `workspace` argument; otherwise the server's startup workspace is used.
+
+### Building
+
+```sh
+pnpm install
+pnpm --filter @fpath/mcp build
+```
+
+This produces an executable at `apps/mcp/dist/index.js`.
+
+### Wiring it into Claude Code
+
+Add to `~/.claude/mcp.json` (or your project's `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "fpath": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/fpath/apps/mcp/dist/index.js",
+        "--workspace",
+        "/absolute/path/to/your/repo"
+      ]
+    }
+  }
+}
+```
+
+`FPATH_WORKSPACE` env var works as an alternative to `--workspace`.
+
+See [apps/mcp/README.md](../apps/mcp/README.md) for full details.

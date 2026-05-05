@@ -10,17 +10,21 @@ Navigate, preview, and copy file paths fast. Built for developers who live in th
 - **Lazy file tree** — directories load on expand; large workspaces stay snappy.
 - **Background workspace index** — full-workspace file index built in the background, so the filter input and Cmd+P quick search find every file (not just what's expanded).
 - **Three filter toggles** — `Hide .` (dotfiles), `Dirs only` (no files at root), `Repos only` (top-level dirs that contain a `.git` child). All persisted across sessions.
-- **Multi-tab Monaco viewer** — the same editor that powers VS Code, with syntax highlighting for ~25 languages. Open multiple files in tabs, close via the × button.
+- **Multi-tab Monaco editor** — the same editor that powers VS Code. Edit and save with `Cmd+S`. Dirty tabs are marked with a `●`; closing one prompts before discarding. Files >2 MB stay read-only.
+- **Live external-change detection** — open files are watched. Clean tabs reload silently when the file changes on disk; dirty tabs prompt with *Reload* / *Keep mine*. Self-events from your own saves are suppressed.
+- **Right-click actions** — Reveal in Finder / Explorer / file manager (platform-aware) and Open in `$EDITOR` (configurable in Settings; falls back to `$VISUAL`/`$EDITOR`/`code`).
+- **Tab navigation** — `Cmd+1..8` jump to tab N, `Cmd+9` jumps to last, `Cmd+W` closes (with dirty guard), `Cmd+Shift+[` / `Cmd+Shift+]` cycle prev/next.
 - **Resizable splitter** — drag the divider between tree and viewer; width persists.
 - **Auto window resize** — window snaps to half-width when no tab is open, restores to your wide width when you open a file.
 - **Quick file search** — `Cmd+P` searches the full workspace index by name and relative path.
 - **Text content search** — `Cmd+Shift+F` runs a Rust-side recursive grep across `.ts` / `.tsx` / `.md` (toggle which extensions). Case-insensitive substring match.
 - **Path clipboard** — multi-select files, then `Enter` (relative paths) or `Shift+Enter` (absolute) to copy. Toast confirms what was copied.
-- **Persistent state** — workspace, recent picker, splitter width, window width, and filter toggles all survive restarts (`@tauri-apps/plugin-store`).
-- **Settings panel** — gear icon in the toolbar opens a modal to add custom ignore patterns (gitignore syntax) and configure which file extensions appear in the text-search modal.
+- **Persistent state** — workspace, recent picker, splitter width, window width, filter toggles, and external-editor command all survive restarts (`@tauri-apps/plugin-store`).
+- **Settings panel** — gear icon in the toolbar opens a modal: custom ignore patterns (gitignore syntax), text-search extension list, external editor command, and updates.
 - **Auto-update** — built-in updater checks GitHub Releases for signed builds and installs in-place (see [Releases & signing](./docs/USAGE.md#releases--signing)).
 - **Popup mode (Mode B)** — frameless overlay summoned anywhere with `Cmd+Option+Space`. Type to fuzzy-find a file in the workspace, `Enter` copies the relative path and dismisses; `Shift+Enter` copies the absolute path.
-- **TUI mode (Mode C)** — `fpath-tui` Go binary built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Vim-style keys (`j`/`k`, `/`, `Space`, `y`/`Y`), workspace-wide filter, multi-select clipboard. See [apps/tui/README.md](./apps/tui/README.md).
+- **TUI mode (Mode C)** — `fpath-tui` Go binary built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Vim-style keys (`j`/`k`, `/`, `Space`, `y`/`Y`), workspace-wide filter, multi-select clipboard, plus `e` to open the highlighted file in `$EDITOR`. See [apps/tui/README.md](./apps/tui/README.md).
+- **MCP server (Mode D)** — `@fpath/mcp` exposes the workspace tools (`list_directory`, `find_files`, `search_text`, `read_file`) over MCP/stdio. Drop the binary into Claude Code, Claude Desktop, or any MCP client. See [apps/mcp/README.md](./apps/mcp/README.md).
 
 ## Modes
 
@@ -29,6 +33,7 @@ Navigate, preview, and copy file paths fast. Built for developers who live in th
 | **A** | Desktop | Tauri v2 + React 19 | Active |
 | **B** | Popup | Frameless overlay (`Cmd+Option+Space`) | Active |
 | **C** | TUI | Go + Bubble Tea (`fpath-tui`) | Active — see [apps/tui/README.md](./apps/tui/README.md) |
+| **D** | MCP server | Node + `@modelcontextprotocol/sdk` | Active — see [apps/mcp/README.md](./apps/mcp/README.md) |
 
 ## Installation (macOS)
 
@@ -74,11 +79,16 @@ Vite hot-reloads the React side; Cargo rebuilds the Rust side on `src-tauri/` ch
 | Quick file search | `Cmd+P` |
 | Text content search | `Cmd+Shift+F` |
 | Focus tree filter input | `Cmd+F` |
+| Save active tab | `Cmd+S` |
+| Close active tab (dirty-guarded) | `Cmd+W` |
+| Jump to tab N (1..8) / last (9) | `Cmd+1..9` |
+| Previous / next tab (cyclical) | `Cmd+Shift+[` / `Cmd+Shift+]` |
 | Copy selected paths (relative) | `Enter` |
 | Copy selected paths (absolute) | `Shift+Enter` |
 | Select-only on a folder (no expand) | `Shift+Click` |
 | Toggle directory expand | Click the row |
 | Toggle file selection | Click the checkbox |
+| Right-click an entry | Reveal in Finder / Open in editor |
 
 ## Project Structure
 
@@ -87,8 +97,9 @@ fpath/
 ├── apps/
 │   ├── desktop/         # Tauri v2 + React 19 + Vite + Monaco
 │   │   ├── src/         # React frontend
-│   │   └── src-tauri/   # Rust backend (search_text, list_directory, ...)
+│   │   └── src-tauri/   # Rust backend (search_text, list_directory, reveal_in_file_manager, open_in_editor, ...)
 │   ├── marketing/       # Next.js landing page
+│   ├── mcp/             # @fpath/mcp — MCP server (Node + stdio)
 │   └── tui/             # Go + Bubble Tea TUI (fpath-tui)
 ├── packages/
 │   └── shared/          # @fpath/shared — types, tree logic, ignore, tests
@@ -105,7 +116,7 @@ pnpm dev:desktop      # Start desktop dev server (Vite + Tauri)
 pnpm dev:marketing    # Start marketing site dev server
 pnpm build            # Build all packages
 pnpm typecheck        # Type-check all packages
-pnpm test             # Run @fpath/shared tests (vitest)
+pnpm test             # Run all test suites (vitest in @fpath/shared, @fpath/desktop, @fpath/mcp)
 pnpm lint             # Lint all packages
 ```
 
@@ -116,7 +127,7 @@ pnpm lint             # Lint all packages
 - **Plugins:** `plugin-fs`, `plugin-dialog`, `plugin-clipboard-manager`, `plugin-store`
 - **Marketing site:** Next.js 16, Tailwind 4
 - **Monorepo:** pnpm workspaces, Turborepo
-- **Tests:** Vitest in `@fpath/shared`
+- **Tests:** Vitest across `@fpath/shared` (tree/ignore), `@fpath/desktop` (lang-map, file editor states, file watchers, tab keybindings — `jsdom` + `@testing-library/react`), and `@fpath/mcp` (per-tool tests against tmp workspaces)
 - **TUI:** Go 1.24, Bubble Tea, Lipgloss, atotto/clipboard (chroma syntax-highlight planned)
 
 ## Documentation

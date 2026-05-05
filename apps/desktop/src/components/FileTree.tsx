@@ -1,8 +1,13 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { readDir } from "@tauri-apps/plugin-fs";
+import { useCallback, useMemo, useState } from "react";
 import type { FileEntry } from "@fpath/shared";
-import { flattenTree, applyTreeFilters } from "@fpath/shared";
+import { applyTreeFilters, flattenTree } from "@fpath/shared";
 import { useStored } from "../hooks/useStored";
+import ContextMenu from "./ContextMenu";
+import { TreeNodeList } from "./filetree/TreeNode";
+import { FlatFileList } from "./filetree/FlatFileList";
+import { buildContextMenuItems } from "./filetree/menu";
+import { useRepoProbe } from "./filetree/useRepoProbe";
+import { useFocusFilterShortcut } from "./filetree/useFocusFilterShortcut";
 
 interface FileTreeProps {
   nodes: FileEntry[];
@@ -13,6 +18,8 @@ interface FileTreeProps {
   onFileOpen: (file: FileEntry) => void;
   onLoadChildren: (dirPath: string) => Promise<void>;
   activeFile: FileEntry | null;
+  externalEditor: string;
+  onToast?: (msg: string) => void;
 }
 
 const FILTER_MAX_RESULTS = 500;
@@ -26,6 +33,8 @@ export default function FileTree({
   onFileOpen,
   onLoadChildren,
   activeFile,
+  externalEditor,
+  onToast,
 }: FileTreeProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["/"]));
   const [filter, setFilter] = useState("");
@@ -33,41 +42,24 @@ export default function FileTree({
   const [hideDotfiles, setHideDotfiles] = useStored("filter.hideDotfiles", false);
   const [rootDirsOnly, setRootDirsOnly] = useStored("filter.rootDirsOnly", false);
   const [repoOnly, setRepoOnly] = useStored("filter.repoOnly", false);
-  const [repoMap, setRepoMap] = useState<Map<string, boolean>>(() => new Map());
+  const [contextMenu, setContextMenu] = useState<
+    { x: number; y: number; node: FileEntry } | null
+  >(null);
 
-  useEffect(() => {
-    if (!repoOnly) return;
-    const toProbe = nodes.filter(
-      (n) => n.kind === "directory" && !repoMap.has(n.path)
-    );
-    if (toProbe.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      toProbe.map(async (n) => {
-        try {
-          const entries = await readDir(n.path);
-          const isRepo = entries.some((e) => e.name === ".git" && e.isDirectory);
-          return [n.path, isRepo] as const;
-        } catch (err) {
-          console.warn(`Repo probe failed for ${n.path}`, err);
-          return [n.path, false] as const;
-        }
-      })
-    ).then((results) => {
-      if (cancelled) return;
-      setRepoMap((prev) => {
-        const next = new Map(prev);
-        for (const [p, v] of results) next.set(p, v);
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [repoOnly, nodes, repoMap]);
+  const repoMap = useRepoProbe(nodes, repoOnly);
+
+  const openContextMenu = useCallback((e: React.MouseEvent, node: FileEntry) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, node });
+  }, []);
 
   const filteredTree = useMemo(
-    () => applyTreeFilters(nodes, { hideDotfiles, rootDirsOnly, repoOnly, repoMap }, 0),
+    () =>
+      applyTreeFilters(
+        nodes,
+        { hideDotfiles, rootDirsOnly, repoOnly, repoMap },
+        0
+      ),
     [nodes, hideDotfiles, rootDirsOnly, repoOnly, repoMap]
   );
 
@@ -118,17 +110,7 @@ export default function FileTree({
     [selectedFiles, onSelectionChange]
   );
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
-        e.preventDefault();
-        const input = document.querySelector<HTMLInputElement>(".filetree-search");
-        input?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+  useFocusFilterShortcut();
 
   return (
     <div className="filetree">
@@ -179,6 +161,7 @@ export default function FileTree({
             onSelect={toggleSelect}
             onOpen={onFileOpen}
             activeFile={activeFile}
+            onContextMenu={openContextMenu}
           />
         ) : (
           <TreeNodeList
@@ -191,151 +174,22 @@ export default function FileTree({
             onToggleExpand={toggleExpand}
             onToggleSelect={toggleSelect}
             onOpen={onFileOpen}
+            onContextMenu={openContextMenu}
           />
         )}
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildContextMenuItems(contextMenu.node, {
+            externalEditor,
+            onFileOpen,
+            onToast,
+          })}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
-
-interface TreeNodeListProps {
-  nodes: FileEntry[];
-  depth: number;
-  expanded: Set<string>;
-  loadingPaths: Set<string>;
-  selectedFiles: Set<string>;
-  activeFile: FileEntry | null;
-  onToggleExpand: (node: FileEntry) => void;
-  onToggleSelect: (path: string) => void;
-  onOpen: (file: FileEntry) => void;
-}
-
-function TreeNodeList(props: TreeNodeListProps) {
-  const { nodes, depth, expanded, loadingPaths, selectedFiles, activeFile } = props;
-  return (
-    <>
-      {nodes.map((node) => (
-        <TreeNode
-          key={node.path}
-          node={node}
-          depth={depth}
-          isExpanded={expanded.has(node.path)}
-          isLoading={loadingPaths.has(node.path)}
-          isSelected={selectedFiles.has(node.path)}
-          isActive={activeFile?.path === node.path}
-          listProps={props}
-        />
-      ))}
-    </>
-  );
-}
-
-function TreeNode({
-  node,
-  depth,
-  isExpanded,
-  isLoading,
-  isSelected,
-  isActive,
-  listProps,
-}: {
-  node: FileEntry;
-  depth: number;
-  isExpanded: boolean;
-  isLoading: boolean;
-  isSelected: boolean;
-  isActive: boolean;
-  listProps: TreeNodeListProps;
-}) {
-  const { onToggleExpand, onToggleSelect, onOpen } = listProps;
-  const paddingLeft = 8 + depth * 16;
-  const isDir = node.kind === "directory";
-  const icon = isDir ? "📁" : "📄";
-
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-  }, []);
-
-  const expandGlyph = isDir
-    ? isLoading
-      ? "⋯"
-      : isExpanded
-        ? "▼"
-        : "▶"
-    : "";
-
-  return (
-    <>
-      <div
-        className={`treenode ${isSelected ? "selected" : ""} ${isActive ? "active" : ""}`}
-        style={{ paddingLeft }}
-        onClick={(e) => {
-          if (e.shiftKey) {
-            onToggleSelect(node.path);
-            return;
-          }
-          if (isDir) onToggleExpand(node);
-          else onOpen(node);
-        }}
-        onContextMenu={handleContextMenu}
-      >
-        <span className="treenode-expand">{expandGlyph}</span>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            e.stopPropagation();
-            onToggleSelect(node.path);
-          }}
-          className="treenode-checkbox"
-        />
-        <span className="treenode-icon">{icon}</span>
-        <span className="treenode-name">{node.name}</span>
-      </div>
-      {isDir && isExpanded && node.children && (
-        <TreeNodeList {...listProps} nodes={node.children} depth={depth + 1} />
-      )}
-    </>
-  );
-}
-
-function FlatFileList({
-  nodes,
-  selectedFiles,
-  onSelect,
-  onOpen,
-  activeFile,
-}: {
-  nodes: FileEntry[];
-  selectedFiles: Set<string>;
-  onSelect: (path: string) => void;
-  onOpen: (file: FileEntry) => void;
-  activeFile: FileEntry | null;
-}) {
-  return (
-    <>
-      {nodes.map((node) => (
-        <div
-          key={node.path}
-          className={`treenode ${selectedFiles.has(node.path) ? "selected" : ""} ${activeFile?.path === node.path ? "active" : ""}`}
-          style={{ paddingLeft: 20 }}
-          onClick={() => onOpen(node)}
-        >
-          <input
-            type="checkbox"
-            checked={selectedFiles.has(node.path)}
-            onChange={(e) => {
-              e.stopPropagation();
-              onSelect(node.path);
-            }}
-            className="treenode-checkbox"
-          />
-          <span className="treenode-icon">📄</span>
-          <span className="treenode-name">{node.name}</span>
-        </div>
-      ))}
-    </>
-  );
-}
-

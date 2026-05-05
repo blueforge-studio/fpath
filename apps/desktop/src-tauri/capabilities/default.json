@@ -14,8 +14,12 @@
     "dialog:allow-open",
     "fs:default",
     "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
     "fs:allow-read-dir",
     "fs:allow-exists",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
+    "dialog:allow-ask",
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "**" }, { "path": "**/*" }]

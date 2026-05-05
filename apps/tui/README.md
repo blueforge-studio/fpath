@@ -43,6 +43,7 @@ fpath-tui ~/Projects/Repos
 | `u` | Clear all selection |
 | `y` | Copy relative path(s) of selection (or current entry) |
 | `Y` | Copy absolute path(s) |
+| `e` | Open the file under the cursor in `$VISUAL` / `$EDITOR` (fallback `vi`). Bubble Tea suspends, the editor takes over the terminal, and the TUI resumes when the editor exits. |
 | `/` | Enter filter mode (workspace-wide) |
 | `?` | Toggle help overlay |
 | `q` / `Ctrl+C` | Quit |
@@ -71,6 +72,7 @@ fpath-tui ~/Projects/Repos
 | Ignore patterns | extensible via Settings | hardcoded defaults (matches `@fpath/shared`) |
 | Text content search | ✓ Cmd+Shift+F | not yet |
 | Monaco preview | ✓ | not yet |
+| Edit & save | ✓ Cmd+S in Monaco | ✓ via `e` → `$EDITOR` |
 | Auto-update | ✓ | rebuild manually |
 
 ## Roadmap

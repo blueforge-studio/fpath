@@ -1,7 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { LogicalSize } from "@tauri-apps/api/dpi";
+import { useCallback, useEffect, useState } from "react";
 import Toolbar from "./components/Toolbar";
 import FileTree from "./components/FileTree";
 import FileViewer from "./components/FileViewer";
@@ -15,10 +12,13 @@ import { loadSearchIgnore } from "@fpath/shared";
 import { useFileTree } from "./hooks/useFileTree";
 import { useStored } from "./hooks/useStored";
 import { useWorkspaceIndex } from "./hooks/useWorkspaceIndex";
-import type { FileEntry, CopyPathMode } from "@fpath/shared";
+import { useWindowAutoSize } from "./hooks/useWindowAutoSize";
+import { useCopySelection } from "./hooks/useCopySelection";
+import { useGlobalKeybindings } from "./hooks/useGlobalKeybindings";
+import { useOpenFiles } from "./hooks/useOpenFiles";
+import type { FileEntry } from "@fpath/shared";
 
 const DEFAULT_EXPANDED_WIDTH = 1200;
-const MIN_COMPACT_WIDTH = 360;
 const DEFAULT_TREE_WIDTH = 320;
 const MIN_TREE_WIDTH = 180;
 const MAX_TREE_WIDTH = 800;
@@ -37,6 +37,36 @@ export default function App() {
     "layout.treeWidth",
     DEFAULT_TREE_WIDTH
   );
+  const [customIgnorePatterns, setCustomIgnorePatterns] = useStored<string>(
+    "settings.customIgnorePatterns",
+    ""
+  );
+  const [searchExtensions, setSearchExtensions] = useStored<string[]>(
+    "settings.searchExtensions",
+    ["ts", "tsx", "md"]
+  );
+  const [externalEditor, setExternalEditor] = useStored<string>(
+    "settings.externalEditor",
+    ""
+  );
+
+  const { nodes: fileTree, loadChildren } = useFileTree(workspacePath);
+  const { files: workspaceIndex, scanning: indexScanning } =
+    useWorkspaceIndex(workspacePath);
+  const { openFiles, activeFile, setActiveFile, openFile, closeFile } =
+    useOpenFiles();
+
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [showSearch, setShowSearch] = useState(false);
+  const [showTextSearch, setShowTextSearch] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSearchIgnore(customIgnorePatterns);
+  }, [customIgnorePatterns]);
+
+  const showToast = useCallback((msg: string) => setToast(msg), []);
 
   const handleTreeResize = useCallback(
     (deltaPx: number) => {
@@ -47,147 +77,35 @@ export default function App() {
     [setTreeWidth]
   );
 
-  const resetSelection = useCallback(() => {
-    setSelectedFiles(new Set());
-  }, []);
-  const { nodes: fileTree, loadChildren } = useFileTree(workspacePath);
-  const { files: workspaceIndex, scanning: indexScanning } = useWorkspaceIndex(workspacePath);
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [openFiles, setOpenFiles] = useState<FileEntry[]>([]);
-  const [activeFile, setActiveFile] = useState<FileEntry | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
-  const [showTextSearch, setShowTextSearch] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [customIgnorePatterns, setCustomIgnorePatterns] = useStored<string>(
-    "settings.customIgnorePatterns",
-    ""
-  );
-  const [searchExtensions, setSearchExtensions] = useStored<string[]>(
-    "settings.searchExtensions",
-    ["ts", "tsx", "md"]
-  );
-
-  useEffect(() => {
-    loadSearchIgnore(customIgnorePatterns);
-  }, [customIgnorePatterns]);
-  const [toast, setToast] = useState<string | null>(null);
+  const resetSelection = useCallback(() => setSelectedFiles(new Set()), []);
 
   const handleWorkspaceChange = useCallback(
     (path: string) => {
       setWorkspacePath(path);
-      setRecent((prev) => [path, ...prev.filter((r) => r !== path)].slice(0, 10));
+      setRecent((prev) =>
+        [path, ...prev.filter((r) => r !== path)].slice(0, 10)
+      );
     },
     [setWorkspacePath, setRecent]
   );
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-  }, []);
+  const copySelection = useCopySelection(selectedFiles, workspacePath, showToast);
 
-  const copySelection = useCallback(
-    async (mode: CopyPathMode) => {
-      if (selectedFiles.size === 0) {
-        showToast("Nothing selected");
-        return;
-      }
-      const paths = [...selectedFiles].sort();
-      const text = paths
-        .map((p) =>
-          mode === "relative" && workspacePath && p.startsWith(workspacePath + "/")
-            ? p.slice(workspacePath.length + 1)
-            : p
-        )
-        .join("\n");
-      try {
-        await writeText(text);
-      } catch {
-        await navigator.clipboard.writeText(text);
-      }
-      const noun = paths.length === 1 ? "path" : "paths";
-      const preview = paths.length === 1 ? ` — ${text}` : "";
-      showToast(`Copied ${paths.length} ${mode} ${noun}${preview}`);
-    },
-    [selectedFiles, workspacePath, showToast]
-  );
+  useWindowAutoSize(openFiles.length > 0, expandedWidth, setExpandedWidth);
 
-  const prevHasFilesRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    const hasFiles = openFiles.length > 0;
-    const prev = prevHasFilesRef.current;
-    prevHasFilesRef.current = hasFiles;
-
-    (async () => {
-      const win = getCurrentWindow();
-      const factor = await win.scaleFactor();
-      const inner = await win.innerSize();
-      const currentW = Math.round(inner.width / factor);
-      const heightLogical = Math.round(inner.height / factor);
-      const compactW = Math.max(MIN_COMPACT_WIDTH, Math.round(expandedWidth / 2));
-
-      if (prev === null) {
-        const target = hasFiles ? expandedWidth : compactW;
-        if (currentW !== target) {
-          await win.setSize(new LogicalSize(target, heightLogical));
-        }
-      } else if (prev && !hasFiles) {
-        if (currentW > MIN_COMPACT_WIDTH * 2) setExpandedWidth(currentW);
-        await win.setSize(new LogicalSize(compactW, heightLogical));
-      } else if (!prev && hasFiles) {
-        await win.setSize(new LogicalSize(expandedWidth, heightLogical));
-      }
-    })().catch((err) => console.warn("window resize failed", err));
-  }, [openFiles.length, expandedWidth, setExpandedWidth]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        setShowSearch(true);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        setShowTextSearch(true);
-        return;
-      }
-      if (e.key !== "Enter") return;
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === "TEXTAREA") return;
-      if (selectedFiles.size === 0) return;
-      e.preventDefault();
-      copySelection(e.shiftKey ? "absolute" : "relative");
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [copySelection, selectedFiles.size]);
-
-  const handleOpenFile = useCallback(
-    (file: FileEntry) => {
-      if (!openFiles.find((f) => f.path === file.path)) {
-        setOpenFiles((prev) => [...prev, file]);
-      }
-      setActiveFile(file);
-    },
-    [openFiles]
-  );
-
-  const handleCloseTab = useCallback(
-    (file: FileEntry) => {
-      setOpenFiles((prev) => prev.filter((f) => f.path !== file.path));
-      if (activeFile?.path === file.path) {
-        const idx = openFiles.findIndex((f) => f.path === file.path);
-        setActiveFile(openFiles[idx - 1] ?? openFiles[idx + 1] ?? null);
-      }
-    },
-    [activeFile, openFiles]
-  );
+  useGlobalKeybindings({
+    selectedCount: selectedFiles.size,
+    onOpenQuickSearch: () => setShowSearch(true),
+    onOpenTextSearch: () => setShowTextSearch(true),
+    onCopy: copySelection,
+  });
 
   const handleSearchSelect = useCallback(
     (file: FileEntry) => {
       setShowSearch(false);
-      handleOpenFile(file);
+      openFile(file);
     },
-    [handleOpenFile]
+    [openFile]
   );
 
   return (
@@ -213,9 +131,11 @@ export default function App() {
             indexScanning={indexScanning}
             selectedFiles={selectedFiles}
             onSelectionChange={setSelectedFiles}
-            onFileOpen={handleOpenFile}
+            onFileOpen={openFile}
             onLoadChildren={loadChildren}
             activeFile={activeFile}
+            externalEditor={externalEditor}
+            onToast={showToast}
           />
         </div>
         {openFiles.length > 0 && (
@@ -225,8 +145,9 @@ export default function App() {
               openFiles={openFiles}
               activeFile={activeFile}
               onTabSelect={setActiveFile}
-              onTabClose={handleCloseTab}
+              onTabClose={closeFile}
               workspacePath={workspacePath}
+              onToast={showToast}
             />
           </>
         )}
@@ -248,7 +169,7 @@ export default function App() {
         <TextSearch
           workspacePath={workspacePath}
           availableExtensions={searchExtensions}
-          onOpenFile={handleOpenFile}
+          onOpenFile={openFile}
           onClose={() => setShowTextSearch(false)}
         />
       )}
@@ -258,6 +179,8 @@ export default function App() {
           onIgnorePatternsChange={setCustomIgnorePatterns}
           searchExtensions={searchExtensions}
           onSearchExtensionsChange={setSearchExtensions}
+          externalEditor={externalEditor}
+          onExternalEditorChange={setExternalEditor}
           onClose={() => setShowSettings(false)}
         />
       )}
