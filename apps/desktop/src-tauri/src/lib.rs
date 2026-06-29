@@ -3,12 +3,13 @@ mod fs_commands;
 mod search;
 mod types;
 
+use crate::types::FileEntry;
 use external::{open_in_editor, reveal_in_file_manager};
 use fs_commands::{file_exists, list_directory, read_file};
 use ignore::WalkBuilder;
 use search::search_text;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Resolve `candidate` to an absolute, canonical path and ensure it lives
 /// inside `root`. Used by every IPC command that accepts a user-controlled
@@ -233,5 +234,54 @@ mod tests {
         };
         assert_eq!(entry.kind, "directory");
         assert!(entry.children.is_some());
+    }
+}
+
+#[cfg(test)]
+mod ensure_within_tests {
+    use super::ensure_within;
+    use std::fs;
+
+    /// Build a one-level-deep sandbox under a fresh tempdir so each test
+    /// gets an isolated filesystem layout.
+    fn sandbox() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let inside = dir.path().join("inside");
+        fs::create_dir_all(&inside).unwrap();
+        fs::write(inside.join("file.txt"), "hi").unwrap();
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.txt"), "top secret").unwrap();
+        dir
+    }
+
+    #[test]
+    fn allows_paths_inside_root() {
+        let dir = sandbox();
+        let root = dir.path().join("inside");
+        let target = root.join("file.txt");
+        let resolved = ensure_within(target.to_str().unwrap(), root.to_str().unwrap())
+            .expect("inside path should resolve");
+        assert!(resolved.ends_with("file.txt"));
+    }
+
+    #[test]
+    fn blocks_paths_outside_root() {
+        let dir = sandbox();
+        let root = dir.path().join("inside");
+        let secret = dir.path().join("outside").join("secret.txt");
+        let err = ensure_within(secret.to_str().unwrap(), root.to_str().unwrap())
+            .expect_err("outside path should be rejected");
+        assert!(err.contains("Path traversal detected"), "got: {}", err);
+    }
+
+    #[test]
+    fn blocks_dotdot_traversal() {
+        let dir = sandbox();
+        let root = dir.path().join("inside");
+        let traversal = root.join("..").join("outside").join("secret.txt");
+        let err = ensure_within(traversal.to_str().unwrap(), root.to_str().unwrap())
+            .expect_err("dotdot should be rejected");
+        assert!(err.contains("Path traversal detected"), "got: {}", err);
     }
 }
