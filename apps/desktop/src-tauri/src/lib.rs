@@ -8,7 +8,25 @@ use fs_commands::{file_exists, list_directory, read_file};
 use ignore::WalkBuilder;
 use search::search_text;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Resolve `candidate` to an absolute, canonical path and ensure it lives
+/// inside `root`. Used by every IPC command that accepts a user-controlled
+/// path so a misbehaving webview (or XSS payload) cannot escape the
+/// workspace and read arbitrary files (e.g. `/etc/passwd`).
+fn ensure_within(candidate: &str, root: &str) -> Result<PathBuf, String> {
+    let canonical_root = fs::canonicalize(root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", root, e))?;
+    let canonical = fs::canonicalize(candidate)
+        .map_err(|e| format!("Invalid path {}: {}", candidate, e))?;
+    if !canonical.starts_with(&canonical_root) {
+        return Err(format!(
+            "Path traversal detected: {} is outside {}",
+            candidate, root
+        ));
+    }
+    Ok(canonical)
+}
 
 const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
     "node_modules", ".git", "dist", ".turbo", ".next", "target",
@@ -17,12 +35,15 @@ const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
 
 #[tauri::command]
 fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", workspace_root, e))?;
+
     let mut result: Vec<FileEntry> = Vec::new();
-    let mut builder = WalkBuilder::new(workspace_root);
+    let mut builder = WalkBuilder::new(&canonical_root);
     builder.standard_filters(true);
     builder.hidden(false);
 
-    let searchignore_path = Path::new(workspace_root).join(".searchignore");
+    let searchignore_path = canonical_root.join(".searchignore");
     if searchignore_path.exists() {
         builder.add_custom_ignore_filename(".searchignore");
     }
@@ -33,7 +54,7 @@ fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
         }
         let abs_path = entry.path().to_string_lossy().to_string();
         let relative_path = abs_path
-            .strip_prefix(&format!("{}/", workspace_root))
+            .strip_prefix(&format!("{}/", canonical_root.to_string_lossy()))
             .unwrap_or(&abs_path)
             .to_string();
         let name = entry.path()
@@ -74,7 +95,9 @@ fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
 
 #[tauri::command]
 fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
-    let path = Path::new(workspace_root).join(".searchignore");
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", workspace_root, e))?;
+    let path = canonical_root.join(".searchignore");
     if path.exists() {
         fs::read_to_string(&path)
             .map_err(|e| format!("Failed to read {}: {}", path.display(), e))
@@ -85,7 +108,9 @@ fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
 
 #[tauri::command]
 fn write_search_ignore(workspace_root: &str, content: &str) -> Result<(), String> {
-    let path = Path::new(workspace_root).join(".searchignore");
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", workspace_root, e))?;
+    let path = canonical_root.join(".searchignore");
     fs::write(&path, content)
         .map_err(|e| format!("Failed to write {}: {}", path.display(), e))
 }
@@ -106,13 +131,6 @@ fn open_in_default_app(path: &str) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to open file: {}", e))?;
     Ok(())
-}
-
-#[tauri::command]
-fn write_search_ignore(workspace_root: &str, content: &str) -> Result<(), String> {
-    let path = Path::new(workspace_root).join(".searchignore");
-    fs::write(&path, content)
-        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
