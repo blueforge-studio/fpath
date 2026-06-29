@@ -3,9 +3,136 @@ mod fs_commands;
 mod search;
 mod types;
 
+use crate::types::FileEntry;
 use external::{open_in_editor, reveal_in_file_manager};
 use fs_commands::{file_exists, list_directory, read_file};
+use ignore::WalkBuilder;
 use search::search_text;
+use std::fs;
+use std::path::PathBuf;
+
+/// Resolve `candidate` to an absolute, canonical path and ensure it lives
+/// inside `root`. Used by every IPC command that accepts a user-controlled
+/// path so a misbehaving webview (or XSS payload) cannot escape the
+/// workspace and read arbitrary files (e.g. `/etc/passwd`).
+fn ensure_within(candidate: &str, root: &str) -> Result<PathBuf, String> {
+    let canonical_root = fs::canonicalize(root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", root, e))?;
+    let canonical = fs::canonicalize(candidate)
+        .map_err(|e| format!("Invalid path {}: {}", candidate, e))?;
+    if !canonical.starts_with(&canonical_root) {
+        return Err(format!(
+            "Path traversal detected: {} is outside {}",
+            candidate, root
+        ));
+    }
+    Ok(canonical)
+}
+
+const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
+    "node_modules", ".git", "dist", ".turbo", ".next", "target",
+    "__pycache__", ".DS_Store", "Thumbs.db",
+];
+
+#[tauri::command]
+fn list_all_files(workspace_root: &str) -> Result<Vec<FileEntry>, String> {
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", workspace_root, e))?;
+
+    let mut result: Vec<FileEntry> = Vec::new();
+    let mut builder = WalkBuilder::new(&canonical_root);
+    builder.standard_filters(true);
+    builder.hidden(false);
+
+    let searchignore_path = canonical_root.join(".searchignore");
+    if searchignore_path.exists() {
+        builder.add_custom_ignore_filename(".searchignore");
+    }
+
+    for entry in builder.build().flatten() {
+        if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            continue;
+        }
+        let abs_path = entry.path().to_string_lossy().to_string();
+        let relative_path = abs_path
+            .strip_prefix(&format!("{}/", canonical_root.to_string_lossy()))
+            .unwrap_or(&abs_path)
+            .to_string();
+        let name = entry.path()
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let extension = entry.path()
+            .extension()
+            .map(|e| e.to_string_lossy().to_string());
+
+        let should_skip = DEFAULT_IGNORE_PATTERNS.iter().any(|pattern| {
+            let p = pattern.trim_end_matches('/');
+            relative_path == p
+                || relative_path.starts_with(&format!("{}/", p))
+                || relative_path.contains(&format!("/{}/", p))
+                || relative_path.ends_with(&format!("/{}", p))
+        });
+        if should_skip { continue; }
+
+        result.push(FileEntry {
+            name,
+            path: abs_path,
+            relative_path,
+            kind: "file".into(),
+            extension,
+            is_symlink: entry.file_type().map_or(false, |ft| ft.is_symlink()),
+            children: None,
+        });
+    }
+
+    result.sort_by(|a, b| {
+        a.relative_path.to_lowercase().cmp(&b.relative_path.to_lowercase())
+    });
+
+    Ok(result)
+}
+
+#[tauri::command]
+fn read_search_ignore(workspace_root: &str) -> Result<String, String> {
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", workspace_root, e))?;
+    let path = canonical_root.join(".searchignore");
+    if path.exists() {
+        fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read {}: {}", path.display(), e))
+    } else {
+        Ok(String::new())
+    }
+}
+
+#[tauri::command]
+fn write_search_ignore(workspace_root: &str, content: &str) -> Result<(), String> {
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|e| format!("Invalid workspace root {}: {}", workspace_root, e))?;
+    let path = canonical_root.join(".searchignore");
+    fs::write(&path, content)
+        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))
+}
+
+#[tauri::command]
+fn reveal_in_finder(path: &str) -> Result<(), String> {
+    std::process::Command::new("open")
+        .args(&["-R", path])
+        .spawn()
+        .map_err(|e| format!("Failed to reveal in Finder: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_in_default_app(path: &str) -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg(path)
+        .spawn()
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -64,9 +191,97 @@ pub fn run() {
             read_file,
             file_exists,
             search_text,
+            list_all_files,
+            read_search_ignore,
+            write_search_ignore,
             reveal_in_file_manager,
             open_in_editor,
         ])
         .run(tauri::generate_context!())
         .expect("error while running fpath");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_entry_serialization() {
+        let entry = FileEntry {
+            name: "test.ts".into(),
+            path: "/ws/test.ts".into(),
+            relative_path: "test.ts".into(),
+            kind: "file".into(),
+            extension: Some("ts".into()),
+            is_symlink: false,
+            children: None,
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(json.contains("test.ts"));
+        assert!(json.contains("file"));
+    }
+
+    #[test]
+    fn test_directory_entry_has_children_vec() {
+        let entry = FileEntry {
+            name: "src".into(),
+            path: "/ws/src".into(),
+            relative_path: "src".into(),
+            kind: "directory".into(),
+            extension: None,
+            is_symlink: false,
+            children: Some(Vec::new()),
+        };
+        assert_eq!(entry.kind, "directory");
+        assert!(entry.children.is_some());
+    }
+}
+
+#[cfg(test)]
+mod ensure_within_tests {
+    use super::ensure_within;
+    use std::fs;
+
+    /// Build a one-level-deep sandbox under a fresh tempdir so each test
+    /// gets an isolated filesystem layout.
+    fn sandbox() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let inside = dir.path().join("inside");
+        fs::create_dir_all(&inside).unwrap();
+        fs::write(inside.join("file.txt"), "hi").unwrap();
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.txt"), "top secret").unwrap();
+        dir
+    }
+
+    #[test]
+    fn allows_paths_inside_root() {
+        let dir = sandbox();
+        let root = dir.path().join("inside");
+        let target = root.join("file.txt");
+        let resolved = ensure_within(target.to_str().unwrap(), root.to_str().unwrap())
+            .expect("inside path should resolve");
+        assert!(resolved.ends_with("file.txt"));
+    }
+
+    #[test]
+    fn blocks_paths_outside_root() {
+        let dir = sandbox();
+        let root = dir.path().join("inside");
+        let secret = dir.path().join("outside").join("secret.txt");
+        let err = ensure_within(secret.to_str().unwrap(), root.to_str().unwrap())
+            .expect_err("outside path should be rejected");
+        assert!(err.contains("Path traversal detected"), "got: {}", err);
+    }
+
+    #[test]
+    fn blocks_dotdot_traversal() {
+        let dir = sandbox();
+        let root = dir.path().join("inside");
+        let traversal = root.join("..").join("outside").join("secret.txt");
+        let err = ensure_within(traversal.to_str().unwrap(), root.to_str().unwrap())
+            .expect_err("dotdot should be rejected");
+        assert!(err.contains("Path traversal detected"), "got: {}", err);
+    }
 }

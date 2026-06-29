@@ -23,10 +23,22 @@ function parseIgnoreFile(content: string): string[] {
 }
 
 function matchPatterns(filePath: string, patterns: string[]): boolean {
-  return patterns.some(
-    (pattern) =>
-      filePath === pattern || filePath.startsWith(pattern + "/")
-  );
+  return patterns.some((pattern) => {
+    const p = pattern.replace(/\/$/, "");
+    // Exact match
+    if (filePath === p) return true;
+    // Path prefix match
+    if (filePath.startsWith(p + "/")) return true;
+    // Match pattern anywhere in path (e.g. node_modules in nested paths)
+    if (!p.startsWith("*") && filePath.includes("/" + p + "/")) return true;
+    if (!p.startsWith("*") && filePath.includes("/" + p)) return true;
+    // Glob: *.ext matches any file with that extension
+    if (p.startsWith("*.")) {
+      const ext = p.slice(1); // .ext
+      if (filePath.endsWith(ext)) return true;
+    }
+    return false;
+  });
 }
 
 export function loadSearchIgnore(content: string): void {

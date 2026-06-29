@@ -2,12 +2,14 @@ interface StatusBarProps {
   fileCount: number;
   selectedCount: number;
   workspacePath: string | null;
+  gitBranch?: string | null;
 }
 
 export default function StatusBar({
   fileCount,
   selectedCount,
   workspacePath,
+  gitBranch,
 }: StatusBarProps) {
   const shortcuts = [
     "⌘C copy abs",
@@ -22,6 +24,7 @@ export default function StatusBar({
       <div className="statusbar-left">
         {workspacePath ? (
           <>
+            {gitBranch && <span className="statusbar-branch">⎇ {gitBranch}</span>}
             <span>{fileCount} files loaded</span>
             {selectedCount > 0 && (
               <span className="statusbar-selected">

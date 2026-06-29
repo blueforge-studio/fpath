@@ -46,7 +46,7 @@ export default function Toolbar({
         <span className="toolbar-path">
           {workspacePath ?? "No workspace open"}
         </span>
-        <button className="toolbar-btn" onClick={handleOpenWorkspace}>
+        <button className="toolbar-btn" data-action="open-workspace" onClick={handleOpenWorkspace}>
           Open
         </button>
         {recent.length > 0 && (

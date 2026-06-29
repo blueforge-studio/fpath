@@ -273,6 +273,15 @@ body {
   color: var(--text-primary);
 }
 
+.treenode.focused {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.treenode:focus {
+  outline: none;
+}
+
 /* Viewer */
 .viewer {
   flex: 1;
@@ -520,6 +529,11 @@ body {
 
 .statusbar-selected {
   color: var(--accent);
+}
+
+.statusbar-branch {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
 }
 
 .statusbar-shortcut {
@@ -860,4 +874,183 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   font-family: var(--font-mono);
+}
+
+/* Context menu */
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 200px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+}
+
+.context-menu-item {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.context-menu-item.disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-panel {
+  width: 560px;
+  max-height: 80vh;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.modal-close { font-size: 20px; color: var(--text-muted); cursor: pointer; }
+.modal-close:hover { color: var(--text-primary); }
+
+.modal-hint {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.searchignore-textarea {
+  flex: 1;
+  min-height: 300px;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+.searchignore-textarea:focus { outline: 1px solid var(--accent); }
+
+.modal-loading, .modal-error { padding: 16px; text-align: center; color: var(--text-muted); }
+.modal-error { color: var(--accent-red); }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-btn {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.modal-btn:hover { background: var(--bg-active); color: var(--text-primary); }
+
+.modal-btn-primary { background: var(--accent); color: var(--bg-primary); }
+.modal-btn-primary:hover { opacity: 0.9; }
+.modal-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Git status */
+.git-status {
+  font-size: 9px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.git-status-M { color: var(--accent-yellow); }
+.git-status-A { color: var(--accent-green); }
+.git-status-D { color: var(--accent-red); }
+.git-status-R { color: var(--accent-blue); }
+.git-status-\? { color: var(--accent-yellow); }
+.git-status-\! { color: var(--text-muted); }
+
+/* Popup */
+.popup-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-primary);
+}
+
+.popup-tree {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-tree .filetree {
+  width: 100%;
+  border-right: none;
+}
+
+.popup-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.popup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 10px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  min-height: 22px;
+  flex-shrink: 0;
+}
+
+.popup-footer-item {
+  font-family: var(--font-mono);
+}
+
+.popup-footer-selected {
+  color: var(--accent);
 }

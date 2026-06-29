@@ -39,6 +39,25 @@ export function findNodeByPath(
   return flat.find((n) => n.path === targetPath) ?? null;
 }
 
+export function updateNodeChildren(
+  nodes: FileEntry[],
+  targetPath: string,
+  children: FileEntry[]
+): FileEntry[] {
+  return nodes.map((node) => {
+    if (node.path === targetPath) {
+      return { ...node, children };
+    }
+    if (node.children && node.children.length > 0) {
+      return {
+        ...node,
+        children: updateNodeChildren(node.children, targetPath, children),
+      };
+    }
+    return node;
+  });
+}
+
 export function getParentPaths(filePath: string): string[] {
   const parts = filePath.split("/");
   const parents: string[] = [];
