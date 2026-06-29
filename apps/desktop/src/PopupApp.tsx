@@ -144,16 +144,6 @@ export default function PopupApp() {
 
   const gitInfo = useGitStatus(workspacePath);
 
-  const gitStatusMap = useMemo(() => {
-    if (!gitInfo) return new Map<string, string>();
-    const map = new Map<string, string>();
-    for (const s of gitInfo.statuses) {
-      map.set(s.path, s.status);
-      map.set(s.relativePath, s.status);
-    }
-    return map;
-  }, [gitInfo]);
-
   const fileCount = useMemo(() => {
     let count = 0;
     const walk = (nodes: FileEntry[]) => {
@@ -172,12 +162,14 @@ export default function PopupApp() {
         {workspacePath ? (
           <FileTree
             nodes={fileTree}
+            workspaceIndex={[]}
+            indexScanning={false}
             selectedFiles={selectedFiles}
             onSelectionChange={setSelectedFiles}
             onFileOpen={handleFileOpen}
-            onDirectoryToggle={handleToggleDirectory}
+            onLoadChildren={handleToggleDirectory}
             activeFile={null}
-            gitStatusMap={gitStatusMap}
+            externalEditor=""
           />
         ) : (
           <div className="popup-placeholder">
