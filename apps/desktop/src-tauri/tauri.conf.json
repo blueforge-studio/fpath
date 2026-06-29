@@ -38,7 +38,41 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main",
+          "description": "Capability for the main window — full IPC access including writes and external app launching.",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "dialog:default",
+            "dialog:allow-open",
+            "fs:default",
+            "fs:allow-read-text-file",
+            "fs:allow-read-dir",
+            "fs:allow-exists",
+            "fs:allow-watch",
+            "store:default",
+            "clipboard-manager:default",
+            "clipboard-manager:allow-write-text"
+          ]
+        },
+        {
+          "identifier": "popup",
+          "description": "Capability for the Mode B popup window — strictly read-only filesystem + tree browsing. No dialog, no external-app launching, no writes to the workspace.",
+          "windows": ["popup"],
+          "permissions": [
+            "core:default",
+            "core:event:default",
+            "core:window:default",
+            "core:webview:default",
+            "core:path:default",
+            "clipboard-manager:default",
+            "clipboard-manager:allow-write-text"
+          ]
+        }
+      ]
     }
   },
   "plugins": {
