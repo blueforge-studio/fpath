@@ -1,3 +1,12 @@
 packages:
   - "packages/*"
   - "apps/*"
+
+# Moved from package.json (pnpm 11 ignores it there).
+overrides:
+  "next": ">=16.3.5"
+
+# pnpm 11 blocks dependency build scripts unless approved (a fresh install in CI fails
+# with ERR_PNPM_IGNORED_BUILDS). npm ran them all, so approve the same set.
+allowBuilds:
+  "esbuild": true
