@@ -4,7 +4,30 @@ packages:
 
 # Moved from package.json (pnpm 11 ignores it there).
 overrides:
-  "next": ">=16.3.5"
+  # SECURITY FLOOR for Next.js.
+  #
+  # The previous floor (>=16.3.5) is no longer a safe one: 16.3.3, 16.3.4
+  # and 16.3.5 each carry 17 published advisories, three of them critical
+  # unauthenticated RCEs (Image Optimization with SVG, `use cache` with
+  # typed arrays, `next/og` ImageResponse), plus a Server Actions DoS and
+  # an SSRF.
+  #
+  # The new floor is 16.4.6. 16.4.0 still carries 10 advisories and
+  # 16.4.1 - 16.4.4 carry 7; 16.4.5 was the first release with none, and
+  # 16.4.6 is the current release and carries none either. >=16.4.6
+  # therefore clears every published advisory.
+  #
+  # Next.js refuses to build an affected version -- `next build` fails with
+  # Error [SecurityFatalError] -- so this floor is what the build needs, not
+  # just what it prefers.
+  "next": ">=16.4.6"
+
+  # SECURITY FLOOR for sharp. 0.35.4 carries libvips CVE-2026-33327/33328/
+  # 35590/35591, libheif GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545, and
+  # librsvg CVE-2026-96889 -- all fixed in 0.35.5. sharp arrives through
+  # Next.js's image optimization, so the floor is set here rather than in a
+  # package.json that does not declare it.
+  "sharp": ">=0.35.5"
 
 # pnpm 11 blocks dependency build scripts unless approved (a fresh install in CI fails
 # with ERR_PNPM_IGNORED_BUILDS). npm ran them all, so approve the same set.
